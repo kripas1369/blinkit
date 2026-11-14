@@ -66,3 +66,36 @@ Target render status (from the manifests in `frontend/frames/`, rendered 14 Nov 
 Practice frames vs now: the practice repo's Barnard D2 frames (made 31 Oct 2026) have the same 3 visits and
 wavelengths. Visit 0 is 2.6% flagged there and 3.2% now; visits 1 and 2 match (2.6% and 3.6%). The cause of the
 visit 0 difference has not been checked.
+
+## 5. Add and Subtract Visits (B4)
+
+Pairwise differencing, minus-median frames (WiseView style), and inverse-variance visit coaddition (`write_diff`, `write_minus_median`, `write_stack`, `write_proof`, run 14 Nov 2026):
+
+### Astrometric Proper Motion Proofs (vs Gaia DR3)
+Proper motion shift measured from first to last visit compared against Gaia DR3 predictions (limit: agreement within 0.50 px):
+- **Barnard's Star Detector 2**:
+  - Visits: 2025-08-26 to 2026-08-21 (360.2 days span).
+  - Gaia expected shift: 1.67 px.
+  - Measured shift: 1.61 px (difference: 0.05 px, direction diff: 0.5°, status: `agrees`).
+- **Epsilon Indi B Detector 2**:
+  - Visits: 2025-04-27 to 2026-10-01 (521.9 days span).
+  - Gaia expected shift: 1.09 px.
+  - Measured shift: 0.98 px (difference: 0.20 px, direction diff: 8.9°, status: `agrees`).
+- **Other rendered detectors**:
+  - Barnard D1: measured 1.57 px vs Gaia 1.66 px (diff 0.18 px, `agrees`).
+  - Barnard D3: measured 1.60 px vs Gaia 1.68 px (diff 0.10 px, `agrees`).
+  - Barnard D4: measured 1.64 px vs Gaia 1.66 px (diff 0.10 px, `agrees`).
+  - Barnard D5: measured 1.51 px vs Gaia 1.67 px (diff 0.18 px, `agrees`).
+  - Barnard D6: not measurable (faint target at 4.5–5.0 um).
+  - Eps Ind B D3: measured 1.02 px vs Gaia 1.06 px (diff 0.12 px, `agrees`).
+  - Eps Ind B D4: measured 0.65 px vs Gaia 0.75 px (diff 0.10 px, `agrees`).
+  - Eps Ind B D1: disagrees / not measurable (cold brown dwarf is faint at 0.75–1.1 um).
+  - WISE 0855: not yet rendered.
+
+### Visit Coaddition Noise Reduction
+Inverse-variance coaddition using `coadd.coadd` on `epoch<i>.fits`:
+- **Barnard D2** (3 visits, 24 exposures): single-visit noise 0.0108 MJy/sr, stack noise 0.0062 MJy/sr, noise ratio gain **1.73x** (theory: $\sqrt{3} \approx 1.732$).
+- **Eps Ind B D2** (5 visits, 39 exposures): single-visit noise 0.0065 MJy/sr, stack noise 0.0030 MJy/sr, noise ratio gain **2.18x** (theory: $\sqrt{5} \approx 2.236$).
+- **Eps Ind B D3** (4 visits, 30 exposures): single-visit noise 0.0058 MJy/sr, stack noise 0.0029 MJy/sr, noise ratio gain **2.02x** (theory: $\sqrt{4} = 2.000$).
+- Synthetic coaddition test (`test_stack.py`): 4-frame coadd drops Gaussian noise standard deviation from 1.000 to 0.501 (gain 1.996x vs theoretical $\sqrt{4} = 2.000$).
+
