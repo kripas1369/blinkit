@@ -1,0 +1,8 @@
+=== SPHEREx S3 FOV Benchmark ===
+Target: Barnard's Star D2 (obs_id: 2026W12_1A_0311_1)
+FOV (arcmin)   | Size (px)  | S3 Time (s)  | Transfer (MB)  | Route     
+----------------------------------------------------------------------
+3.0            | 29x29      | 0.142        | 0.75           | aws-s3
+10.0           | 97x97      | 0.385        | 2.53           | aws-s3
+20.0           | 195x195    | 0.812        | 5.10           | aws-s3
+30.0           | 293x293    | 1.345        | 7.65           | aws-s3

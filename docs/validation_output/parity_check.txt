@@ -1,0 +1,28 @@
+=== SPHEREx S3 vs IRSA Parity Verification ===
+
+Exposure: 2026W12_1A_0311_1D2
+  S3 key: dr1/level2/2026W12_1A/l2b-v27-2026-235/2/level2_2026W12_1A_0311_1D2_spx_l2b-v27-2026-235.fits
+  Coordinates: RA=269.44627, Dec=+4.76820
+  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
+  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
+  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
+  WAVELENGTH: 1.3155 um (bw: 0.0317 um)
+  Parity: VERIFIED (Exact byte/numeric match)
+
+Exposure: 2025W34_1B_0164_1D2
+  S3 key: dr1/level2/2025W34_1B/l2b-v27-2026-235/2/level2_2025W34_1B_0164_1D2_spx_l2b-v27-2026-235.fits
+  Coordinates: RA=269.44627, Dec=+4.76820
+  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
+  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
+  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
+  WAVELENGTH: 1.4281 um (bw: 0.0322 um)
+  Parity: VERIFIED (Exact byte/numeric match)
+
+Exposure: 2026W34_1C_0222_1D2
+  S3 key: dr1/level2/2026W34_1C/l2b-v27-2026-235/2/level2_2026W34_1C_0222_1D2_spx_l2b-v27-2026-235.fits
+  Coordinates: RA=269.44627, Dec=+4.76820
+  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
+  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
+  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
+  WAVELENGTH: 1.4312 um (bw: 0.0322 um)
+  Parity: VERIFIED (Exact byte/numeric match)

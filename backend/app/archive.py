@@ -2,6 +2,7 @@
 import concurrent.futures as cf
 import io
 import json
+import threading
 import time
 from dataclasses import asdict, dataclass
 from functools import lru_cache
@@ -48,6 +49,7 @@ class SpherexImage:
 
 
 TAP_TIMEOUT_SECONDS = 300
+_IRSA_CUTOUT_SEMAPHORE = threading.Semaphore(MAX_PARALLEL_DOWNLOADS)
 
 
 class _TimedSession(requests.Session):
@@ -294,9 +296,10 @@ def summarize(images: list[SpherexImage]) -> dict:
 
 
 def cutout_file(image: SpherexImage, ra: float, dec: float, size_deg: float) -> Path:
-    """Cache location for one cutout (same request -> same file, so it is downloaded once)."""
-    name = f"{image.did.rsplit('?', 1)[-1].replace('/', '_')}_{ra:.5f}_{dec:+.5f}_{size_deg:.4f}.fits"
-    return CACHE_DIR / "cutouts" / name
+    """Cache location for one cutout (keyed by release collection and obs_id)."""
+    col = (image.collection or "unknown").strip().lower()
+    name = f"{image.obs_id}_D{image.detector}_{ra:.5f}_{dec:+.5f}_{size_deg:.4f}.fits"
+    return CACHE_DIR / "cutouts" / col / name
 
 
 def download_cutout(image: SpherexImage, ra: float, dec: float, size_deg: float = 0.05) -> Path:
@@ -318,9 +321,8 @@ def download_cutout(image: SpherexImage, ra: float, dec: float, size_deg: float 
             return target
         except S3NotInImage as exc:
             raise NotInImage(str(exc)) from exc
-        except Exception:
-            # Fall back to IRSA cutout service if S3 read fails
-            pass
+        except Exception as exc:
+            print(f"  warning: S3 read failed for {image.did} ({exc}), falling back to IRSA cutout")
 
     if image.path is None:
         raise ArchiveError("Call attach_paths() before downloading")
@@ -328,30 +330,32 @@ def download_cutout(image: SpherexImage, ra: float, dec: float, size_deg: float 
 
     params = {"ra": ra, "dec": dec, "size": size_deg, "path": image.path}
     last = None
-    for attempt in range(RETRIES):
-        try:
-            resp = requests.get(CUTOUT_URL, params=params, timeout=180)
-        except requests.RequestException as exc:
-            last = exc
-        else:
-            if resp.status_code == 200 and resp.content[:6] == b"SIMPLE":
-                tmp = target.with_suffix(".part")
-                if DROP_PSF_FROM_CUTOUTS:
-                    _save_without_psf(resp.content, tmp)
-                else:
-                    tmp.write_bytes(resp.content)
-                tmp.rename(target)
-                return target
-            if resp.status_code == 404:
-                raise NotInImage(f"{image.did} does not contain RA={ra:.5f} Dec={dec:.5f}")
-            last = f"HTTP {resp.status_code}: {resp.text[:100]!r}"
-        time.sleep(2 ** attempt)
-    raise ArchiveError(f"Cutout failed after {RETRIES} tries for {image.did}: {last}")
+    with _IRSA_CUTOUT_SEMAPHORE:
+        for attempt in range(RETRIES):
+            try:
+                resp = requests.get(CUTOUT_URL, params=params, timeout=180)
+            except requests.RequestException as exc:
+                last = exc
+            else:
+                if resp.status_code == 200 and resp.content[:6] == b"SIMPLE":
+                    tmp = target.with_suffix(".part")
+                    _save_cutout(resp.content, tmp)
+                    tmp.rename(target)
+                    return target
+                if resp.status_code == 404:
+                    raise NotInImage(f"{image.did} does not contain RA={ra:.5f} Dec={dec:.5f}")
+                last = f"HTTP {resp.status_code}: {resp.text[:100]!r}"
+            time.sleep(2 ** attempt)
+        raise ArchiveError(f"Cutout failed after {RETRIES} tries for {image.did}: {last}")
 
 
-def _save_without_psf(content: bytes, path: Path) -> None:
+def _save_cutout(content: bytes, path: Path) -> None:
     with fits.open(io.BytesIO(content)) as hdul:
-        kept = fits.HDUList([h for h in hdul if h.name != "PSF"])
+        hdul[0].header["PIXSRC"] = ("irsa-cutout", "Pixel source: NASA IRSA cutout service")
+        if DROP_PSF_FROM_CUTOUTS:
+            kept = fits.HDUList([h for h in hdul if h.name != "PSF"])
+        else:
+            kept = fits.HDUList(list(hdul))
         kept.writeto(path, overwrite=True, output_verify="silentfix")
 
 
@@ -360,7 +364,7 @@ def trim_cutout_cache(max_gb: float = CUTOUT_CACHE_MAX_GB) -> int:
     folder = CACHE_DIR / "cutouts"
     if not folder.exists():
         return 0
-    files = [(p, p.stat()) for p in folder.glob("*.fits")]
+    files = [(p, p.stat()) for p in folder.rglob("*.fits")]
     total = sum(s.st_size for _, s in files)
     removed = 0
     for path, st in sorted(files, key=lambda f: max(f[1].st_atime, f[1].st_mtime)):
@@ -377,7 +381,8 @@ def download_cutouts(
 ) -> dict[str, Path | Exception]:
     """Download several cutouts, a few at a time (IRSA says 503 when asked for too many at once)."""
     results: dict[str, Path | Exception] = {}
-    with cf.ThreadPoolExecutor(MAX_PARALLEL_DOWNLOADS) as pool:
+    workers = 8 if SPHEREX_PIXELS == "s3" else MAX_PARALLEL_DOWNLOADS
+    with cf.ThreadPoolExecutor(workers) as pool:
         futures = {pool.submit(download_cutout, im, ra, dec, size_deg): im for im in images}
         for fut in cf.as_completed(futures):
             im = futures[fut]

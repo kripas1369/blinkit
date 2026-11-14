@@ -252,6 +252,8 @@ def read_box(
             del crop_flg_hdr[k]
 
     # 11. Assemble HDUList
+    prim_hdr = prim_hdr.copy()
+    prim_hdr["PIXSRC"] = ("aws-s3", "Pixel source: AWS S3 byte-range reader")
     hdul = fits.HDUList([
         fits.PrimaryHDU(header=prim_hdr),
         fits.ImageHDU(data=img_data, header=crop_img_hdr, name="IMAGE"),
