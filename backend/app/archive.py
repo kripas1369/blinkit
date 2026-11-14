@@ -15,7 +15,7 @@ from astropy.io import fits, votable
 
 from backend.app.config import (
     CACHE_DIR, COLLECTIONS, CUTOUT_CACHE_MAX_GB, CUTOUT_URL, DETECTORS, DROP_PSF_FROM_CUTOUTS,
-    MAX_PARALLEL_DOWNLOADS, RETRIES, SPHEREX_PIXELS, TAP_URL,
+    MAX_PARALLEL_DOWNLOADS, RETRIES, SIA_URL, SPHEREX_PIXELS, TAP_URL,
 )
 from backend.app.coords import mjd_to_date
 from backend.app.flags import bad_pixel_bitmask, flag_bits
@@ -48,8 +48,20 @@ class SpherexImage:
         return (self.mjd_start + self.mjd_end) / 2
 
 
-TAP_TIMEOUT_SECONDS = 300
 _IRSA_CUTOUT_SEMAPHORE = threading.Semaphore(MAX_PARALLEL_DOWNLOADS)
+
+# A position search answers in seconds; 300 s per try let one silent IRSA block the job worker ~20 min.
+TAP_TIMEOUT_SECONDS = 90
+
+# When TAP fails, the same search goes to IRSA's SIA service, which on 14 Nov 2026 answered about half
+# the requests while TAP answered almost none. Quick tries beat long waits when failures are instant 502s.
+SIA_TRIES = 8
+SIA_TIMEOUT_SECONDS = 45
+SIA_DEADLINE_SECONDS = 120   # per collection, however many tries are left
+SIA_RADIUS_DEG = 0.0003      # ~1 arcsec: "the footprint contains the point", like the TAP search
+
+# Every answered search is saved: the last resort when both TAP and SIA fail for that position.
+IMAGE_LIST_DIR = CACHE_DIR / "image_lists"
 
 
 class _TimedSession(requests.Session):
@@ -65,8 +77,16 @@ def _tap() -> pyvo.dal.TAPService:
     return pyvo.dal.TAPService(TAP_URL, session=_TimedSession())
 
 
+# After TAP fails every try, later queries fail at once for this long instead of each waiting through
+# RETRIES timeouts again (one render asks TAP for the search, Gaia, CatWISE and the alignment stars).
+TAP_COOLDOWN_SECONDS = 300
+_tap_down = {"until": 0.0, "reason": ""}
+
+
 def _run(adql: str):
     """Run an ADQL query, retrying when IRSA drops the connection or times out."""
+    if time.monotonic() < _tap_down["until"]:
+        raise ArchiveError(f"IRSA TAP is down (not retried for a few minutes): {_tap_down['reason']}")
     last = None
     for attempt in range(RETRIES):
         try:
@@ -75,6 +95,7 @@ def _run(adql: str):
                 requests.Timeout) as exc:
             last = exc
             time.sleep(2 ** attempt)
+    _tap_down.update(until=time.monotonic() + TAP_COOLDOWN_SECONDS, reason=str(last)[:200])
     raise ArchiveError(f"IRSA TAP did not answer after {RETRIES} tries: {last}")
 
 
@@ -132,7 +153,6 @@ def releases() -> list[dict]:
 def _fetch_s3_keys_sia(ra: float, dec: float, collections: tuple[str, ...]) -> dict[str, str]:
     """Query IRSA SIA2 to retrieve AWS S3 keys when obscore cloud_access is empty."""
     s3_keys = {}
-    SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
     for col in collections:
         try:
             resp = requests.get(
@@ -164,14 +184,39 @@ def _detector_number(bandpass: str) -> int:
     return int(str(bandpass).rsplit("D", 1)[-1])
 
 
-def find_images(
-    ra: float, dec: float, collections: tuple[str, ...] = COLLECTIONS, detector: int | None = None
-) -> list[SpherexImage]:
-    """Every SPHEREx image whose footprint (s_region) contains the point, sorted by time.
+def _s3_key(row) -> str | None:
+    if "cloud_access" not in row.colnames:
+        return None
+    ca_raw = str(row["cloud_access"]).strip()
+    if not ca_raw or ca_raw == "None":
+        return None
+    try:
+        return json.loads(ca_raw).get("aws", {}).get("key")
+    except Exception:
+        return None
 
-    `detector` limits the search to one detector; for crowded deep fields (R Dra: 2,483 images)
-    the full search timed out on 31 Oct while the one-detector search answered in 13 s.
-    """
+
+def _image_from_row(row) -> SpherexImage:
+    """One spherex.obscore row; TAP and SIA return the same ObsCore columns."""
+    path = None
+    if "access_url" in row.colnames and "/ibe/data/" in str(row["access_url"]):
+        path = str(row["access_url"]).split("/ibe/data/", 1)[1]
+    return SpherexImage(
+        obs_id=str(row["obs_id"]),
+        did=str(row["obs_publisher_did"]),
+        detector=_detector_number(row["energy_bandpassname"]),
+        mjd_start=float(row["t_min"]),
+        mjd_end=float(row["t_max"]),
+        wl_min_um=float(row["em_min"]) * 1e6,
+        wl_max_um=float(row["em_max"]) * 1e6,
+        release_date=str(row["obs_release_date"]),
+        collection=str(row["obs_collection"]),
+        path=path,
+        s3_key=_s3_key(row),
+    )
+
+
+def _find_images_tap(ra: float, dec: float, collections: tuple[str, ...], detector: int | None) -> list[SpherexImage]:
     in_list = ",".join(f"'{c}'" for c in collections)
     one_detector = f"AND energy_bandpassname = 'SPHEREx-D{int(detector)}'" if detector else ""
     adql = f"""
@@ -182,36 +227,109 @@ def find_images(
           AND obs_collection IN ({in_list})
           {one_detector}
     """
-    table = _run(adql)
-    images = []
-    for row in table:
-        s3_key = None
-        if "cloud_access" in row.colnames:
-            ca_raw = str(row["cloud_access"]).strip()
-            if ca_raw and ca_raw != "None":
-                try:
-                    s3_key = json.loads(ca_raw).get("aws", {}).get("key")
-                except Exception:
-                    pass
-        images.append(
-            SpherexImage(
-                obs_id=str(row["obs_id"]),
-                did=str(row["obs_publisher_did"]),
-                detector=_detector_number(row["energy_bandpassname"]),
-                mjd_start=float(row["t_min"]),
-                mjd_end=float(row["t_max"]),
-                wl_min_um=float(row["em_min"]) * 1e6,
-                wl_max_um=float(row["em_max"]) * 1e6,
-                release_date=str(row["obs_release_date"]),
-                collection=str(row["obs_collection"]),
-                s3_key=s3_key,
-            )
-        )
+    images = [_image_from_row(row) for row in _run(adql)]
     if images and all(im.s3_key is None for im in images):
         s3_map = _fetch_s3_keys_sia(ra, dec, collections)
         for im in images:
             im.s3_key = s3_map.get(im.did) or s3_map.get(f"{im.obs_id}_{im.detector}")
+    return images
 
+
+def _sia_collection(ra: float, dec: float, collection: str) -> list[SpherexImage]:
+    """Images of one collection containing the point, from IRSA SIA2; raises ArchiveError if it never answers."""
+    params = {
+        "COLLECTION": collection, "POS": f"CIRCLE {ra:.8f} {dec:.8f} {SIA_RADIUS_DEG}",
+        "RESPONSEFORMAT": "VOTABLE", "MAXREC": 200_000,
+    }
+    deadline = time.monotonic() + SIA_DEADLINE_SECONDS
+    last = None
+    for _ in range(SIA_TRIES):
+        try:
+            resp = requests.get(SIA_URL, params=params, timeout=SIA_TIMEOUT_SECONDS)
+            if resp.status_code == 200:
+                table = votable.parse_single_table(io.BytesIO(resp.content)).to_table(use_names_over_ids=True)
+                return [_image_from_row(row) for row in table]
+            last = f"HTTP {resp.status_code}"
+        except (requests.RequestException, ValueError, IndexError) as exc:
+            last = exc
+        if time.monotonic() > deadline:
+            break
+        time.sleep(1.5)
+    raise ArchiveError(f"IRSA SIA did not answer for {collection}: {last}")
+
+
+def _find_images_sia(
+    ra: float, dec: float, collections: tuple[str, ...], detector: int | None
+) -> tuple[list[SpherexImage], list[str]]:
+    """(images, collections that answered); raises ArchiveError when none answered."""
+    images, answered, errors = [], [], []
+    for col in collections:
+        try:
+            found = _sia_collection(ra, dec, col)
+        except ArchiveError as exc:
+            errors.append(str(exc))
+            continue
+        answered.append(col)
+        images += [im for im in found if detector is None or im.detector == int(detector)]
+    if not answered:
+        raise ArchiveError("; ".join(errors))
+    if errors:
+        print(f"  warning: SIA search incomplete, only {', '.join(answered)} answered ({'; '.join(errors)})")
+    return images, answered
+
+
+def _image_list_file(ra: float, dec: float, collections: tuple[str, ...], detector: int | None) -> Path:
+    det = f"d{int(detector)}" if detector else "all"
+    return IMAGE_LIST_DIR / f"{ra:.5f}_{dec:+.5f}_{det}_{'-'.join(sorted(collections))}.json"
+
+
+def _save_image_list(path: Path, images: list[SpherexImage], source: str, complete: bool) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    tmp.write_text(json.dumps({
+        "saved_at": time.time(), "source": source, "complete": complete,
+        "images": [asdict(im) for im in images],
+    }))
+    tmp.replace(path)
+
+
+def _load_image_list(path: Path) -> dict | None:
+    try:
+        saved = json.loads(path.read_text())
+        saved["images"] = [SpherexImage(**im) for im in saved["images"]]
+        return saved
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
+def find_images(
+    ra: float, dec: float, collections: tuple[str, ...] = COLLECTIONS, detector: int | None = None
+) -> list[SpherexImage]:
+    """Every SPHEREx image whose footprint (s_region) contains the point, sorted by time.
+
+    `detector` limits the search to one detector; for crowded deep fields (R Dra: 2,483 images)
+    the full search timed out on 31 Oct while the one-detector search answered in 13 s.
+
+    Order: IRSA TAP (the main source), then IRSA SIA if TAP fails, then the last saved answer if both
+    fail. Raises ArchiveError only when all three fail.
+    """
+    saved_file = _image_list_file(ra, dec, collections, detector)
+    try:
+        images = _find_images_tap(ra, dec, collections, detector)
+        _save_image_list(saved_file, images, "tap", complete=True)
+    except ArchiveError as tap_error:
+        print(f"  warning: {tap_error}; trying IRSA SIA")
+        try:
+            images, answered = _find_images_sia(ra, dec, collections, detector)
+            _save_image_list(saved_file, images, "sia", complete=len(answered) == len(collections))
+        except ArchiveError as sia_error:
+            saved = _load_image_list(saved_file)
+            if not saved:
+                raise ArchiveError(f"{tap_error}; {sia_error}") from sia_error
+            age_h = (time.time() - saved["saved_at"]) / 3600
+            partial = "" if saved["complete"] else ", from a search where not every release answered"
+            print(f"  warning: IRSA TAP and SIA failed; using the image list saved {age_h:.0f} h ago{partial}")
+            images = saved["images"]
     return sorted(images, key=lambda im: (im.mjd, im.detector))
 
 
@@ -219,18 +337,26 @@ def attach_paths(images: list[SpherexImage], chunk: int = 200) -> list[SpherexIm
     """Fill `path` for each image from the archive's file table, in a few batched queries.
 
     (The archive cannot join the file table inside a position search, so this is a second step.)
+    Images found through SIA already have their path. When TAP is down and every image can be read
+    from S3, the paths are left empty: they are only needed if S3 fails.
     """
-    by_did = {im.did: im for im in images}
+    by_did = {im.did: im for im in images if im.path is None}
     dids = list(by_did)
-    for i in range(0, len(dids), chunk):
-        in_list = ",".join(f"'{d}'" for d in dids[i:i + chunk])
-        table = _run(f"""
-            SELECT p.obs_publisher_did, a.uri
-            FROM spherex.plane p JOIN spherex.artifact a ON a.planeid = p.planeid
-            WHERE a.producttype = 'science' AND p.obs_publisher_did IN ({in_list})
-        """)
-        for row in table:
-            by_did[str(row["obs_publisher_did"])].path = str(row["uri"]).removeprefix("ibe/data/")
+    try:
+        for i in range(0, len(dids), chunk):
+            in_list = ",".join(f"'{d}'" for d in dids[i:i + chunk])
+            table = _run(f"""
+                SELECT p.obs_publisher_did, a.uri
+                FROM spherex.plane p JOIN spherex.artifact a ON a.planeid = p.planeid
+                WHERE a.producttype = 'science' AND p.obs_publisher_did IN ({in_list})
+            """)
+            for row in table:
+                by_did[str(row["obs_publisher_did"])].path = str(row["uri"]).removeprefix("ibe/data/")
+    except ArchiveError as exc:
+        if SPHEREX_PIXELS == "s3" and all(im.s3_key for im in by_did.values()):
+            print(f"  warning: no IRSA file paths ({exc}); reading every image from S3")
+            return images
+        raise
     missing = [d for d, im in by_did.items() if im.path is None]
     if missing:
         raise ArchiveError(f"No file path found for {len(missing)} images, e.g. {missing[0]}")

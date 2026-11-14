@@ -268,12 +268,12 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
 
     manifest_frames = []
     manifest_notes = list(notes or [])
-    align_stars = None
     try:
         from backend.app.gaia import gaia_stars
         align_stars = gaia_stars(ra, dec, 0.05)
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"  warning: no Gaia stars for the alignment check ({exc})")
+        align_stars = []  # None would make measure_align_offset ask IRSA again for every visit
 
     for f in frames:
         p = f.pop("picture")

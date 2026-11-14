@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 TAP_URL = "https://irsa.ipac.caltech.edu/TAP"
+SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
 CUTOUT_URL = "https://irsa.ipac.caltech.edu/ibe/cutout"
 S3_BUCKET_URL = "https://nasa-irsa-spherex.s3.us-east-1.amazonaws.com"
 SPHEREX_PIXELS = os.environ.get("SPHEREX_PIXELS", "s3")  # "s3" or "cutout".
