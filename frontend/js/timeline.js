@@ -279,7 +279,6 @@ export function createTimeline({ onDetector = () => {} } = {}) {
   }
 
   function message(text) {
-    el.box.hidden = false;
     el.body.hidden = true;
     el.message.hidden = false;
     el.message.textContent = text;

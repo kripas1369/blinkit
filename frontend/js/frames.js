@@ -54,6 +54,12 @@ export function wavelengthText(frame) {
 }
 
 /** One line under the frame. Every value comes from the manifest. */
+export function releaseBadge(release) {
+  if (!release || typeof release !== "string") return "";
+  const short = release.replace(/^spherex_/i, "").toUpperCase();
+  return `${short} release`;
+}
+
 export function frameLabel(frame, index, count) {
   const exposures = frame.n_images === 1 ? "1 exposure" : `${frame.n_images} exposures added`;
   const ofEpoch = isNumber(frame.n_images_in_epoch) ? ` of ${frame.n_images_in_epoch} in this visit` : "";
@@ -65,6 +71,9 @@ export function frameLabel(frame, index, count) {
     `${frame.pct_flagged.toFixed(1)}% pixels flagged`,
     ...(isNumber(frame.pct_no_value) && frame.pct_no_value > 0
       ? [`${frame.pct_no_value.toFixed(1)}% with no value (striped)`] : []),
+    ...(frame.release ? [releaseBadge(frame.release)] : []),
+    ...(isNumber(frame.align_offset_px) && frame.align_offset_px > 0.5
+      ? [`possible misalignment (${frame.align_offset_px.toFixed(2)} px)`] : []),
   ].join(" · ");
 }
 
@@ -164,6 +173,33 @@ export function framesQuery({ targetKey, ra, dec, det, fov }) {
     ? { target: targetKey, band: det }
     : { ra: ra.toFixed(6), dec: dec.toFixed(6), band: det, fov_arcmin: fov };
   return `/api/frames?${new URLSearchParams(params)}`;
+}
+
+export function sidecarQuery(where, endpoint) {
+  const { targetKey, ra, dec, det, fov } = where;
+  const params = targetKey && fov === PREPARED_FOV
+    ? { target: targetKey, band: det }
+    : { ra: ra.toFixed(6), dec: dec.toFixed(6), band: det, fov_arcmin: fov };
+  return `/api/${endpoint}?${new URLSearchParams(params)}`;
+}
+
+/** gaia.json / wise.json for the same folder as the manifest (API or static files). */
+export async function loadSidecar(where, endpoint, base, fetchFn = fetch) {
+  if (await hasApi(fetchFn)) {
+    try {
+      const resp = await fetchFn(sidecarQuery(where, endpoint), { cache: "no-cache" });
+      if (resp.status === 404) return null;
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${resp.status}`);
+      }
+      return await resp.json();
+    } catch (err) {
+      if (err instanceof TypeError) throw new FramesUnavailable("Could not reach the data API");
+      throw err;
+    }
+  }
+  return getJson(`${base}/${endpoint}.json`, fetchFn);
 }
 
 async function askFrames(url, fetchFn) {

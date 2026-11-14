@@ -69,6 +69,12 @@ test("Barnard D2 add-up: real values give the expected label", () => {
   assert.ok(spanDays(m.frames) > 300 && spanDays(m.frames) < 400);
 });
 
+test("release and alignment warnings appear in the frame label", () => {
+  const f = { ...barnard().frames[0], release: "spherex_dr1", align_offset_px: 0.62 };
+  assert.match(frameLabel(f, 0, 3), /DR1 release/);
+  assert.match(frameLabel(f, 0, 3), /possible misalignment \(0\.62 px\)/);
+});
+
 test("label wording for single exposures, add-ups and unknown wavelength", () => {
   const single = { ...barnard().frames[0], n_images: 1, wl_target_range_um: undefined };
   assert.match(frameLabel(single, 0, 3), / · 1 exposure of 18 in this visit · /);

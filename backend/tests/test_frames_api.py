@@ -53,6 +53,22 @@ def run_now(monkeypatch):
     monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: f(*a)))
 
 
+def test_fov_30_is_allowed(prepared, monkeypatch):
+    monkeypatch.setattr(main, "_render", lambda: fake_render([]))
+    monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: None))
+    r = client.get("/api/frames", params={"ra": 10, "dec": 0, "band": 2, "fov_arcmin": 30})
+    assert r.status_code == 202
+
+
+def test_gaia_and_wise_sidecars(prepared):
+    sidecar = {"format": "spherex-blink-gaia/1", "stars": [], "frames": []}
+    (prepared / "gaia.json").write_text(json.dumps(sidecar))
+    (prepared / "wise.json").write_text(json.dumps({**sidecar, "format": "spherex-blink-wise/1"}))
+    assert client.get("/api/gaia", params={"target": "barnard", "band": 2}).json()["format"].startswith("spherex-blink-gaia")
+    assert client.get("/api/wise", params={"target": "barnard", "band": 2}).json()["format"].startswith("spherex-blink-wise")
+    assert client.get("/api/gaia", params={"target": "barnard", "band": 3}).status_code == 404
+
+
 def test_prepared_target_has_image_urls(prepared):
     r = client.get("/api/frames", params={"target": "barnard", "band": 2})
     assert r.status_code == 200
@@ -74,7 +90,7 @@ def test_position_within_5_arcsec_of_a_target_uses_its_prepared_frames(prepared)
     ({"target": "barnard", "band": 9}, 400),
     ({"band": 2}, 400),
     ({"ra": 400, "dec": 0, "band": 2}, 400),
-    ({"ra": 10, "dec": 0, "band": 2, "fov_arcmin": 30}, 400),
+    ({"ra": 10, "dec": 0, "band": 2, "fov_arcmin": 31}, 400),
 ])
 def test_errors_are_plain_messages(prepared, params, status):
     r = client.get("/api/frames", params=params)

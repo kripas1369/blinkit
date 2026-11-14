@@ -1,6 +1,6 @@
 export const FOV_DEFAULT = 3;   // arcminutes
 export const FOV_MIN = 1;
-export const FOV_MAX = 15;
+export const FOV_MAX = 30;
 export const DET_DEFAULT = 2;
 
 export const DETECTORS = {

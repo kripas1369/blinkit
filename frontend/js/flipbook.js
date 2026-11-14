@@ -1,5 +1,6 @@
 // The SPHEREx flipbook panel: play through visits, or blink two of them, with Gaia markers.
-import { frameLabel, loadExtra, loadFrames, loadImage, loadIndex, spanDays } from "./frames.js";
+import { flagLegendHtml } from "./flags_legend.js";
+import { frameLabel, loadFrames, loadImage, loadIndex, loadSidecar, spanDays } from "./frames.js";
 import {
   BLINK_SPEEDS, DEFAULT_BLINK_SPEED, DEFAULT_SPEED, SPEEDS, defaultBlinkPair, intervalMs, nextIndex, prevIndex,
 } from "./player.js";
@@ -36,6 +37,26 @@ export function drawGaia(layer, gaia, i, size, gMax, { trail = true } = {}) {
     Object.assign(mark.style, { left: `${left}%`, top: `${top}%`, width: `${100 / size}%` });
     mark.title = `Gaia DR3 ${star.source_id}` + (star.g_mag !== null ? `, G ${star.g_mag}` : "") +
       (star.has_motion ? "" : " (no Gaia proper motion)");
+    layer.append(mark);
+  }
+}
+
+/** CatWISE2020 sources of a wise.json (spherex-blink-wise/1 lists them under "sources"). */
+export function wiseSources(wise) {
+  return wise ? wise.sources || wise.stars || [] : [];
+}
+
+/** CatWISE2020 markers (orange squares; Gaia markers are white circles). */
+export function drawWise(layer, wise, i, size) {
+  layer.replaceChildren();
+  for (const src of wiseSources(wise)) {
+    const mark = document.createElement("span");
+    mark.className = src.target ? "wise-mark wise-target" : "wise-mark";
+    const { left, top } = percentAt(src.xy[i], size);
+    Object.assign(mark.style, { left: `${left}%`, top: `${top}%`, width: `${100 / size}%` });
+    const name = src.source_name || src.source_id;
+    mark.title = `CatWISE2020 ${name}` + (src.w1_mag != null ? `, W1 ${src.w1_mag}` : "") +
+      (src.w2_mag != null ? `, W2 ${src.w2_mag}` : "");
     layer.append(mark);
   }
 }
@@ -78,7 +99,9 @@ export function createFlipbook({
   onDetector, onFrames = () => {}, onPixel = () => {}, onVisit = () => {}, view = {}, onView = () => {},
 }) {
   const el = {
-    gaia: $("flip-gaia"), showGaia: $("flip-show-gaia"), gaiaMag: $("flip-gaia-mag"), gaiaNoteBox: $("flip-gaia-note"),
+    gaia: $("flip-gaia"), wise: $("flip-wise"), showGaia: $("flip-show-gaia"), showWise: $("flip-show-wise"),
+    gaiaMag: $("flip-gaia-mag"), gaiaNoteBox: $("flip-gaia-note"), flagLegend: $("flip-flag-legend"),
+    detBar: $("flip-det-bar"),
     stage: $("flip-stage"), img: $("flip-img"), flags: $("flip-flags"), message: $("flip-message"),
     summary: $("flip-summary"), label: $("flip-label"), note: $("flip-note"), cautions: $("flip-cautions"),
     prev: $("flip-prev"), play: $("flip-play"), next: $("flip-next"), slider: $("flip-slider"),
@@ -96,10 +119,12 @@ export function createFlipbook({
   if (SPEEDS.includes(view.speed)) el.speed.value = String(view.speed);
   if (typeof view.flags === "boolean") el.showFlags.checked = view.flags;
   if (typeof view.gaia === "boolean") el.showGaia.checked = view.gaia;
+  if (typeof view.wise === "boolean" && el.showWise) el.showWise.checked = view.wise;
 
   let manifest = null;
   let wantedPair = Number.isInteger(view.a) && Number.isInteger(view.b) ? [view.a, view.b] : null;
   let gaia = null;
+  let wise = null;
   let pollTimer = null;
   let folder = "";
   let index = 0;
@@ -125,6 +150,7 @@ export function createFlipbook({
     for (const c of [el.prev, el.play, el.next, el.slider, el.speed, el.loop, el.blinkA, el.blinkB,
       el.blinkToggle, el.blinkSpeed, el.showFlags]) c.disabled = !on;
     el.showGaia.disabled = el.gaiaMag.disabled = !(on && gaia);
+    if (el.showWise) el.showWise.disabled = !(on && wise);
   }
 
   const gaiaLimit = () => (el.gaiaMag.value === "all" ? null : Number(el.gaiaMag.value));
@@ -134,11 +160,41 @@ export function createFlipbook({
     if (!el.gaia.hidden) drawGaia(el.gaia, gaia, index, manifest.size_px, gaiaLimit());
   }
 
+  function renderWise() {
+    if (!el.wise) return;
+    el.wise.hidden = !(manifest && wise && el.showWise?.checked);
+    if (!el.wise.hidden) drawWise(el.wise, wise, index, manifest.size_px);
+  }
+
+  function renderFlagLegend() {
+    if (!el.flagLegend) return;
+    const frame = manifest ? manifest.frames[index] : null;
+    const html = frame?.flag_counts ? flagLegendHtml(frame.flag_counts) : "";
+    el.flagLegend.innerHTML = html;
+    el.flagLegend.hidden = !html;
+  }
+
+  function renderDetBar(active) {
+    if (!el.detBar) return;
+    for (const button of el.detBar.querySelectorAll("[data-det]")) {
+      const n = Number(button.dataset.det);
+      const on = n === active;
+      button.classList.toggle("det-active", on);
+      button.setAttribute("aria-pressed", String(on));
+    }
+  }
+
   function showMessage(text, detectorChoices = []) {
     stop();
     manifest = null;
     gaia = null;
+    wise = null;
     el.gaia.hidden = true;
+    if (el.wise) el.wise.hidden = true;
+    if (el.flagLegend) {
+      el.flagLegend.innerHTML = "";
+      el.flagLegend.hidden = true;
+    }
     el.gaiaNoteBox.textContent = "";
     el.img.hidden = true;
     el.flags.hidden = true;
@@ -172,6 +228,8 @@ export function createFlipbook({
     el.slider.value = String(i);
     el.position.textContent = `${i + 1} of ${count()}`;
     renderGaia();
+    renderWise();
+    renderFlagLegend();
     onVisit(i);
   }
 
@@ -291,6 +349,7 @@ export function createFlipbook({
     const name = label || "this position";
     try {
       showMessage(`Loading SPHEREx frames for ${name}, D${det}…`);
+      renderDetBar(det);
       onFrames(null);
       const result = await loadFrames(where);
       if (version !== loadVersion) return;
@@ -302,18 +361,23 @@ export function createFlipbook({
       if (result.status === "none") {
         const bands = (await preparedBands(where.targetKey)).filter((b) => b !== det);
         if (version !== loadVersion) return;
-        showMessage(bands.length ? `${result.message} Prepared:` : result.message, bands);
+        const hint = bands.length
+          ? `${result.message} Try another detector (D1–D6) or the prepared bands below.`
+          : `${result.message} Try another detector, a wider field (up to 30′), or wait if the data API is preparing this patch.`;
+        showMessage(bands.length ? `${hint} Prepared:` : hint, bands);
         return;
       }
       const m = result.manifest;
       const dir = result.base;
-      const [extraGaia] = await Promise.all([
-        loadExtra(dir, "gaia.json").catch(() => null),
+      const [extraGaia, extraWise] = await Promise.all([
+        loadSidecar(where, "gaia", dir).catch(() => null),
+        loadSidecar(where, "wise", dir).catch(() => null),
         ...m.frames.flatMap((f) => [f.png, f.flags_png].filter(Boolean).map((p) => loadImage(`${dir}/${p}`))),
       ]);
       if (version !== loadVersion) return;
       manifest = m;
-      gaia = extraGaia && extraGaia.frames.length === m.frames.length ? extraGaia : null;
+      gaia = extraGaia && extraGaia.frames?.length === m.frames.length ? extraGaia : null;
+      wise = extraWise && extraWise.frames?.length === m.frames.length ? extraWise : null;
       folder = dir;
       el.message.hidden = true;
       el.img.hidden = false;
@@ -326,7 +390,8 @@ export function createFlipbook({
       if (result.warnings.length) el.note.textContent += ` Warnings: ${result.warnings.join("; ")}`;
       el.gaiaNoteBox.textContent = gaiaNote(gaia, m.pixel_arcsec);
       render(mode === "blink" ? blinkPair()[0] : 0);
-      onFrames({ manifest: m, base: dir, gaia, where });
+      onFrames({ manifest: m, base: dir, gaia, wise, where });
+      renderDetBar(where.det);
       if (count() > 1 && !reduceMotion.matches) (mode === "play" ? togglePlay : toggleBlink)();
     } catch (err) {
       if (version !== loadVersion) return;
@@ -357,6 +422,11 @@ export function createFlipbook({
   });
   el.showGaia.addEventListener("change", () => { renderGaia(); onView({ gaia: el.showGaia.checked }); });
   el.gaiaMag.addEventListener("change", renderGaia);
+  el.showWise?.addEventListener("change", () => { renderWise(); onView({ wise: el.showWise.checked }); });
+  el.detBar?.addEventListener("click", (e) => {
+    const button = e.target.closest("[data-det]");
+    if (button) onDetector(Number(button.dataset.det));
+  });
   el.stage.addEventListener("click", (e) => {
     if (!manifest) return;
     const p = pixelUnder(e.clientX, e.clientY, el.img.getBoundingClientRect(), manifest.size_px);

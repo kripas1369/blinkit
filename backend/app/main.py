@@ -7,6 +7,7 @@ SPHEREx images come from NASA IRSA (search) and IRSA's public AWS copy (pixels),
     /api/resolve?name=                         SIMBAD position and proper motion
     /api/coverage?ra=&dec=[&band=]             SPHEREx images covering the point
     /api/releases                              SPHEREx collection counts and date span
+    /api/gaia /api/wise                        marker sidecars for the current frames folder (when present)
     /api/frames?target=&band=                  manifest of the prepared frames (5 official targets)
     /api/frames?ra=&dec=&band=[&fov_arcmin=]   any position: starts a background job (HTTP 202 and
                                                {"status": "working", "message"} meanwhile), then the same manifest
@@ -110,8 +111,8 @@ def locate(target: str | None, ra: float | None, dec: float | None, band: int, f
         raise ApiError(400, "Give either target= or both ra= and dec=")
     if not (0 <= ra < 360 and -90 <= dec <= 90):
         raise ApiError(400, "ra must be 0-360 and dec -90..+90 degrees")
-    if not 1 <= fov <= 15:
-        raise ApiError(400, "fov_arcmin must be 1-15")
+    if not 1 <= fov <= 30:
+        raise ApiError(400, "fov_arcmin must be 1-30")
     if math.isclose(fov, PREPARED_FOV):
         for key, (tra, tdec) in _official_positions().items():
             if (separation_arcsec(ra, dec, tra, tdec) < SAME_TARGET_ARCSEC
@@ -293,6 +294,16 @@ def frames(loc: dict = Depends(location)):
         if f.get("flags_png"):
             f["flags_png_url"] = loc["url"] + f["flags_png"]
     return {**m, "base_url": loc["url"], "source": loc["kind"], "warnings": loc["warnings"]}
+
+
+@app.get("/api/gaia")
+def gaia(loc: dict = Depends(location)):
+    return _read(loc, "gaia.json", "Gaia markers")
+
+
+@app.get("/api/wise")
+def wise(loc: dict = Depends(location)):
+    return _read(loc, "wise.json", "WISE markers")
 
 
 @app.get("/api/{rest:path}")
