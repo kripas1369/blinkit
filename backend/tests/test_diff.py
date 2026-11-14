@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
-from backend.app.diff import colour, default_pair, difference, write_diff, write_minus_median
+from backend.app.diff import colour, default_pair, difference, minus_median_z, write_diff, write_minus_median
 
 
 def frame(image, sigma=1.0, flagged=None):
@@ -45,6 +45,16 @@ def test_default_pair_prefers_closest_wavelength_then_longest_time():
         {"a": 1, "b": 2, "wl_gap_um": 0.01, "days": 200},
     ]
     assert (default_pair(pairs)["a"], default_pair(pairs)["b"]) == (1, 2)
+
+
+def test_minus_median_removes_visit_sky_offset():
+    median = np.full((5, 5), 1.0)
+    image = np.full((5, 5), 0.97)     # this visit's sky sits 0.03 (3 sigma) below the median everywhere
+    image[2, 2] += 0.05               # and one pixel 5 sigma brighter than its own sky
+    z, sky_change = minus_median_z(frame(image, sigma=0.01), median, np.ones((5, 5), bool))
+    assert sky_change == pytest.approx(-0.03)
+    assert z[0, 0] == pytest.approx(0.0, abs=1e-9)
+    assert z[2, 2] == pytest.approx(5.0)
 
 
 def test_write_minus_median_synthetic(tmp_path):

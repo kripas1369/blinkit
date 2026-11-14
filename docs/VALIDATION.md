@@ -86,16 +86,23 @@ Proper motion shift measured from first to last visit compared against Gaia DR3 
   - Barnard D3: measured 1.60 px vs Gaia 1.68 px (diff 0.10 px, `agrees`).
   - Barnard D4: measured 1.64 px vs Gaia 1.66 px (diff 0.10 px, `agrees`).
   - Barnard D5: measured 1.51 px vs Gaia 1.67 px (diff 0.18 px, `agrees`).
-  - Barnard D6: not measurable (faint target at 4.5–5.0 um).
+  - Barnard D6: not measurable (proof.py found no usable centre; the cause has not been checked).
   - Eps Ind B D3: measured 1.02 px vs Gaia 1.06 px (diff 0.12 px, `agrees`).
   - Eps Ind B D4: measured 0.65 px vs Gaia 0.75 px (diff 0.10 px, `agrees`).
-  - Eps Ind B D1: disagrees / not measurable (cold brown dwarf is faint at 0.75–1.1 um).
+  - Eps Ind B D1: disagrees: measured 0.59 px pointing the other way vs Gaia 0.75 px (diff 1.29 px). Our guess, not
+    checked: the brown dwarf is too faint at 0.75–1.1 um for a reliable centre.
   - WISE 0855: not yet rendered.
 
 ### Visit Coaddition Noise Reduction
 Inverse-variance coaddition using `coadd.coadd` on `epoch<i>.fits`:
 - **Barnard D2** (3 visits, 24 exposures): single-visit noise 0.0108 MJy/sr, stack noise 0.0062 MJy/sr, noise ratio gain **1.73x** (theory: $\sqrt{3} \approx 1.732$).
 - **Eps Ind B D2** (5 visits, 39 exposures): single-visit noise 0.0065 MJy/sr, stack noise 0.0030 MJy/sr, noise ratio gain **2.18x** (theory: $\sqrt{5} \approx 2.236$).
-- **Eps Ind B D3** (4 visits, 30 exposures): single-visit noise 0.0058 MJy/sr, stack noise 0.0029 MJy/sr, noise ratio gain **2.02x** (theory: $\sqrt{4} = 2.000$).
+- **Eps Ind B D3** (4 visits, 32 exposures): single-visit noise 0.0058 MJy/sr, stack noise 0.0029 MJy/sr, noise ratio gain **2.02x** (theory: $\sqrt{4} = 2.000$).
 - Synthetic coaddition test (`test_stack.py`): 4-frame coadd drops Gaussian noise standard deviation from 1.000 to 0.501 (gain 1.996x vs theoretical $\sqrt{4} = 2.000$).
 
+### Minus-median frames
+Each visit's overall sky offset from the median (the median of visit − median over good pixels) is removed before
+dividing by sigma, as the pairwise differences already did. Without it, Eps Ind B D2 visit 4 (the QR3 visit) sat
+0.0169 MJy/sr (2.6 sigma) below the median everywhere and its minus-median frame was one flat colour. Measured offsets
+(MJy/sr): Eps Ind B D2 +0.0022, +0.0006, +0.0003, 0.0, −0.0169; Eps Ind B D3 −0.0006, +0.0084, +0.0001, −0.0051;
+Barnard D2 0.0 for all 3 visits. Each frame's offset is stored as `sky_change` in diff.json.

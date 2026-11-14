@@ -168,6 +168,19 @@ def write_diff(folder: Path) -> dict:
     return diff
 
 
+def minus_median_z(frame: dict, median_image: np.ndarray, has_median: np.ndarray) -> tuple[np.ndarray, float]:
+    """(visit − median) / sigma after removing the visit's overall sky offset, as difference() does:
+    visits from different releases can sit a few sigma apart everywhere."""
+    valid = frame["usable"] & has_median
+    if not valid.any():
+        return np.full(median_image.shape, np.nan), 0.0
+    raw = frame["image"] - median_image
+    sky_change = float(np.median(raw[valid]))
+    with np.errstate(invalid="ignore"):
+        z = np.where(valid, (raw - sky_change) / frame["sigma"], np.nan)
+    return z, sky_change
+
+
 def write_minus_median(folder: Path) -> dict:
     """Compute per-pixel median across visits and minus-median sigma maps (WiseView style)."""
     manifest = json.loads((folder / "manifest.json").read_text())
@@ -216,15 +229,13 @@ def write_minus_median(folder: Path) -> dict:
     minus_frames = []
     for f in frames:
         eid = f["epoch_id"]
-        d = data[eid]
-        valid = d["usable"] & has_median
-        with np.errstate(invalid="ignore"):
-            z = np.where(valid, (d["image"] - median_image) / d["sigma"], np.nan)
+        z, sky_change = minus_median_z(data[eid], median_image, has_median)
         png_name = f"minus_median{eid}.png"
         Image.fromarray(colour(z), "RGBA").save(folder / png_name)
         minus_frames.append({
             "epoch_id": eid,
             "png": png_name,
+            "sky_change": round(sky_change, 4),
         })
 
     result = {
