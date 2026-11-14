@@ -13,17 +13,33 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name"><span class="brand-spherex">SPHEREx</span> <span class="brand-blink">Blink</span></span>
     </a>
-    <nav class="site-nav" aria-label="Pages">
-      <a href="./" aria-current="page">Explore</a>
+
+    <form id="search-form" class="toolbar-search" role="search" autocomplete="off" novalidate>
+      <label for="query" class="sr-only">Star name or position</label>
+      <div class="search-with-suggest">
+        <input id="query" name="query" type="text" inputmode="text" spellcheck="false"
+               class="query-input"
+               placeholder="Search a star, or RA Dec like 269.446 4.768"
+               autocomplete="off"
+               role="combobox"
+               aria-autocomplete="list"
+               aria-controls="query-suggestions"
+               aria-expanded="false"
+               aria-describedby="query-help status">
+        <ul id="query-suggestions" class="query-suggestions" role="listbox" hidden></ul>
+      </div>
+      <button id="go" type="submit" class="sr-only">Search</button>
+      <p id="query-help" class="sr-only">SIMBAD names, 50 suggested objects, or coordinates such as 269.446 4.768 or 17h57m47s +04d46m06s.</p>
+    </form>
+
+    <nav class="toolbar-actions" aria-label="Page actions">
+      <button type="button" id="share-btn" class="tool-btn" title="Copy a link to this view" disabled>Share</button>
+      <button type="button" id="inspector-toggle" class="tool-btn" aria-controls="inspector" aria-expanded="true"
+              title="Show or hide the sky map and settings">Sky map</button>
       <button type="button" id="help-toggle" class="help-btn" aria-expanded="false"
               aria-controls="onboard-guide" title="How to use this site">Help</button>
     </nav>
   </header>
-
-  <section class="hero" aria-labelledby="hero-title">
-    <h1 id="hero-title" class="hero-title">The sky is never the same twice.</h1>
-    <p class="hero-sub">Each visit is another moment in time. See what stayed—and what moved.</p>
-  </section>
 
   <div id="onboard-guide" class="guide-modal" hidden>
     <button type="button" class="guide-backdrop" id="onboard-backdrop" aria-label="Close help" tabindex="-1"></button>
@@ -32,9 +48,9 @@
       <h2 id="onboard-title" class="onboard-title">How to use Blink</h2>
       <p class="guide-lead">Three steps to compare the same patch of sky across SPHEREx visits.</p>
       <ol class="onboard-steps">
-        <li>Choose a <strong>star</strong>, <strong>coordinates</strong>, a <strong>target under the map</strong>, or a <strong>suggested object</strong>.</li>
-        <li>Set <strong>field of view</strong> and <strong>detector</strong>—the white square on the map.</li>
-        <li>When frames are ready, <strong>flip through visits</strong>. What moves or fades is worth a closer look—not a discovery.</li>
+        <li>Pick one of the <strong>official targets</strong>, or <strong>search</strong> a star or coordinates at the top.</li>
+        <li>Set <strong>field of view</strong> and <strong>detector</strong> in the <strong>Sky map</strong> panel (the white square on the map).</li>
+        <li>When frames are ready, <strong>flip through visits</strong>. What moves or fades is worth a closer look, but it is not a discovery.</li>
       </ol>
       <div class="onboard-actions">
         <button type="button" id="onboard-try" class="btn btn-primary">Try Barnard's Star</button>
@@ -44,108 +60,45 @@
   </div>
 
   <main class="page">
-    <div class="layout layout-primary">
-    <section class="panel controls sky-panel" aria-labelledby="search-title">
-      <header class="sky-panel-head">
-        <p class="sky-step">Step 1</p>
-        <h2 id="search-title" class="panel-title sky-panel-title">Choose a patch of sky</h2>
-        <p class="sky-panel-lead">Search a name, enter coordinates, or pick a suggestion.</p>
+    <div id="split" class="split">
+    <div class="content">
+      <header class="page-head">
+        <h1 id="hero-title" class="page-title">The sky is never the same twice.</h1>
       </header>
 
-      <div class="segmented search-tabs" role="tablist" aria-label="How to choose the position">
-        <button type="button" role="tab" id="tab-name" class="tab" aria-selected="true" aria-controls="search-form">Name</button>
-        <button type="button" role="tab" id="tab-coords" class="tab" aria-selected="false" aria-controls="coord-form">Coordinates</button>
-      </div>
+      <section class="finder" aria-labelledby="finder-title">
+        <h2 id="finder-title" class="sr-only">Go to a position</h2>
+        <div class="finder-bar">
+          <form id="coord-form" class="finder-coords" autocomplete="off" novalidate aria-label="Enter coordinates">
+            <div class="segmented coord-units" role="group" aria-label="Units">
+              <button type="button" class="tab" data-unit="deg" aria-pressed="true">Degrees</button>
+              <button type="button" class="tab" data-unit="hms" aria-pressed="false">h m s</button>
+            </div>
+            <label for="coord-ra" class="sr-only">Right ascension</label>
+            <input id="coord-ra" type="text" inputmode="decimal" spellcheck="false"
+                   class="inset-input" placeholder="RA 269.452" title="Right ascension"
+                   aria-describedby="coord-preview coord-help">
+            <label for="coord-dec" class="sr-only">Declination</label>
+            <input id="coord-dec" type="text" inputmode="decimal" spellcheck="false"
+                   class="inset-input" placeholder="Dec +4.693" title="Declination"
+                   aria-describedby="coord-preview coord-help">
+            <button id="coord-go" type="submit" class="btn btn-primary btn-small">Go</button>
+          </form>
 
-      <div class="inset-card setup-pane">
-        <form id="search-form" class="search" autocomplete="off" novalidate role="tabpanel" aria-labelledby="tab-name">
-          <label for="query" class="sr-only">Star name or position</label>
-          <div class="search-with-suggest">
-            <input id="query" name="query" type="text" inputmode="text" spellcheck="false"
-                   class="inset-input query-input"
-                   placeholder="Barnard's Star or 17h57m47s +04d46m06s"
-                   autocomplete="off"
-                   role="combobox"
-                   aria-autocomplete="list"
-                   aria-controls="query-suggestions"
-                   aria-expanded="false"
-                   aria-describedby="query-help status">
-            <ul id="query-suggestions" class="query-suggestions" role="listbox" hidden></ul>
-          </div>
-          <button id="go" type="submit" class="btn btn-primary btn-block">Continue</button>
-          <p id="query-help" class="help setup-footnote">
-            SIMBAD names, 50 curated objects, or coordinates. Example <code>269.446 4.768</code>.
-          </p>
-          <details class="catalog-browse inset-disclosure" id="catalog-browse">
-            <summary>Browse 50 suggested objects</summary>
-            <label for="catalog-filter" class="sr-only">Filter the catalog</label>
-            <input id="catalog-filter" type="search" class="catalog-filter inset-input" placeholder="Filter by name or type…" autocomplete="off">
-            <ul id="catalog-list" class="catalog-list" role="list"></ul>
+          <details class="finder-browse" id="catalog-browse">
+            <summary class="btn btn-small">50 suggested objects</summary>
+            <div class="finder-popover">
+              <label for="catalog-filter" class="sr-only">Filter the suggested objects</label>
+              <input id="catalog-filter" type="search" class="catalog-filter inset-input" placeholder="Filter by name or type…" autocomplete="off">
+              <ul id="catalog-list" class="catalog-list" role="list"></ul>
+            </div>
           </details>
-        </form>
-
-        <form id="coord-form" class="search" autocomplete="off" novalidate role="tabpanel" aria-labelledby="tab-coords" hidden>
-          <div class="segmented coord-units segmented-compact" role="group" aria-label="Units">
-            <button type="button" class="tab" data-unit="deg" aria-pressed="true">Degrees</button>
-            <button type="button" class="tab" data-unit="hms" aria-pressed="false">Hours &amp; DMS</button>
-          </div>
-          <div class="coord-fields">
-            <div class="coord-field">
-              <label for="coord-ra" class="field-caption">Right ascension</label>
-              <input id="coord-ra" type="text" inputmode="decimal" spellcheck="false"
-                     class="inset-input" placeholder="269.452"
-                     aria-describedby="coord-preview coord-help">
-            </div>
-            <div class="coord-field">
-              <label for="coord-dec" class="field-caption">Declination</label>
-              <input id="coord-dec" type="text" inputmode="decimal" spellcheck="false"
-                     class="inset-input" placeholder="+4.693"
-                     aria-describedby="coord-preview coord-help">
-            </div>
-          </div>
-          <p id="coord-preview" class="coord-preview coord-result" aria-live="polite"></p>
-          <button id="coord-go" type="submit" class="btn btn-primary btn-block">Continue</button>
-          <p id="coord-help" class="help setup-footnote">
-            Paste <code>RA=133.79 Dec=-7.24</code> into either field. Dec is −90 to +90.
-          </p>
-        </form>
-      </div>
-
-      <div class="inset-card view-card" aria-labelledby="view-card-title">
-        <h3 id="view-card-title" class="inset-card-title">View settings</h3>
-        <div class="inset-row">
-          <div class="inset-row-label">
-            <span class="field-caption">Field of view</span>
-            <span class="inset-value"><output id="fov-value" for="fov">3</output> arcmin</span>
-          </div>
-          <input id="fov" name="fov" type="range" min="1" max="15" step="1" value="3" aria-label="Field of view in arcminutes">
         </div>
-        <label class="inset-divider" for="det" aria-hidden="true"></label>
-        <div class="inset-row inset-row-select">
-          <span class="field-caption" id="det-label">SPHEREx detector</span>
-          <select id="det" name="det" class="inset-select" aria-labelledby="det-label"></select>
-        </div>
-      </div>
+        <p id="coord-preview" class="coord-preview finder-preview" aria-live="polite"></p>
+        <p id="coord-help" class="sr-only">Paste RA=133.79 Dec=-7.24 into either field. Dec is −90 to +90.</p>
+      </section>
 
       <div id="status" class="status status-banner" role="status" aria-live="polite"></div>
-
-      <h2 class="panel-title panel-title-tight" id="position-title">Your position</h2>
-      <div id="selection" class="selection">
-        <p class="muted selection-empty">No position chosen yet. Search, pick a target below the map, or click the sky.</p>
-      </div>
-    </section>
-
-    <section class="panel sky workspace-top" aria-labelledby="map-title">
-      <div class="sky-header">
-        <h2 id="map-title" class="panel-title">Sky map</h2>
-        <label class="inline-label" for="survey"><span>Background</span>
-          <select id="survey"></select>
-        </label>
-      </div>
-      <div id="aladin" class="aladin" aria-label="Interactive sky map. Click to choose a position.">
-        <p class="map-message" id="map-message">Loading the sky map…</p>
-      </div>
-      <p class="help map-help">Drag to pan, scroll to zoom, click to choose a position. The white square is the field of view.</p>
 
       <section class="targets-strip" aria-labelledby="targets-title">
         <header class="targets-strip-head">
@@ -155,34 +108,24 @@
         <ul id="targets" class="targets targets-row" role="list"></ul>
       </section>
 
-      <section class="flipbook" aria-labelledby="flip-title" hidden>
+      <section class="panel flipbook" aria-labelledby="flip-title">
         <div class="flip-head">
-          <h3 id="flip-title">SPHEREx flipbook</h3>
+          <h2 id="flip-title">SPHEREx flipbook</h2>
           <span id="flip-summary" class="flip-summary"></span>
         </div>
 
         <div class="flip-body">
-          <div id="flip-stage" class="flip-stage">
-            <img id="flip-img" class="flip-layer" alt="" hidden>
-            <img id="flip-flags" class="flip-layer flip-flags" alt="" hidden>
-            <div id="flip-gaia" class="gaia-layer" aria-hidden="true" hidden></div>
-            <span class="flip-target" aria-hidden="true" hidden></span>
-            <span class="flip-compass" aria-hidden="true" hidden>N ↑ &nbsp;E ←</span>
-            <span class="flip-scale" aria-hidden="true" hidden><span>1′</span><span class="flip-scale-bar"></span></span>
-            <p id="flip-message" class="flip-message">Pick one of the 5 official targets to see its SPHEREx visits.</p>
-          </div>
-
-
-
-
-          <div class="flip-side">
-            <p id="flip-label" class="flip-label" aria-live="polite"></p>
-            <div id="flip-cautions" class="flip-cautions" hidden>
-              <strong>Before you trust your eyes</strong>
-              <ul></ul>
+          <div class="flip-main">
+            <div id="flip-stage" class="flip-stage">
+              <img id="flip-img" class="flip-layer" alt="" hidden>
+              <img id="flip-flags" class="flip-layer flip-flags" alt="" hidden>
+              <div id="flip-gaia" class="gaia-layer" aria-hidden="true" hidden></div>
+              <span class="flip-target" aria-hidden="true" hidden></span>
+              <span class="flip-compass" aria-hidden="true" hidden>N ↑ &nbsp;E ←</span>
+              <span class="flip-scale" aria-hidden="true" hidden><span>1′</span><span class="flip-scale-bar"></span></span>
+              <p id="flip-message" class="flip-message">Pick one of the 5 official targets to see its SPHEREx visits.</p>
             </div>
-
-
+            <p id="flip-label" class="flip-label" aria-live="polite"></p>
 
             <div class="flip-modes" role="tablist" aria-label="Flipbook mode">
               <button type="button" role="tab" id="mode-play" class="tab" aria-selected="true" aria-controls="play-controls">Play</button>
@@ -203,9 +146,6 @@
               </div>
             </div>
 
-
-
-
             <div id="blink-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-blink" hidden>
               <div class="inline-row">
                 <label class="inline-label" for="blink-a"><span>Visit A</span> <select id="blink-a"></select></label>
@@ -217,22 +157,25 @@
               </div>
               <p class="help">Like Clyde Tombaugh in 1930: two pictures of the same sky swap quickly, and anything that moved or changed jumps out.</p>
             </div>
+          </div>
+
+          <div class="flip-side">
+            <div id="flip-cautions" class="flip-cautions" hidden>
+              <strong>Before you trust your eyes</strong>
+              <ul></ul>
+            </div>
 
             <label class="check"><input type="checkbox" id="flip-show-flags"> <span>Show flagged pixels in red</span></label>
-            <button type="button" id="sci-toggle" class="btn btn-small sci-toggle" aria-expanded="false" aria-controls="sci-view" disabled>
+            <button type="button" id="sci-toggle" class="btn btn-small sci-toggle" aria-expanded="false" aria-controls="sci-view" disabled hidden>
               <span>Scientist view: raw pixels and flags</span>
             </button>
-            <button type="button" id="iv-toggle" class="btn btn-small sci-toggle" aria-expanded="false" aria-controls="iv-view" disabled>
+            <button type="button" id="iv-toggle" class="btn btn-small sci-toggle" aria-expanded="false" aria-controls="iv-view" disabled hidden>
               <span>Inside one visit: single exposures (hours apart)</span>
             </button>
             <div class="inline-row">
               <label class="check"><input type="checkbox" id="flip-show-gaia" checked> <span>Gaia DR3 markers</span></label>
               <label class="inline-label" for="flip-gaia-mag"><span>Stars</span> <select id="flip-gaia-mag"></select></label>
             </div>
-
-
-
-
 
             <p id="flip-gaia-note" class="help"></p>
             <p id="flip-note" class="help flip-note"></p>
@@ -247,7 +190,6 @@
           </div>
         </div>
       </section>
-    </section>
     </div>
 
     <section class="panel workspace-detail" aria-label="More from this patch of sky" hidden>
@@ -388,9 +330,16 @@
         <p id="tl-message" class="help" hidden></p>
         <div id="tl-body" hidden>
           <figure class="lc-figure">
-            <figcaption>Every SPHEREx image of this position, one row per detector. Each thin line is one image;
-              each grey bar is one visit. ▼ = the visits shown in the flipbook. Click a row to show that detector.</figcaption>
+            <figcaption>Every SPHEREx image of this position, one row per detector. Each thin line is one day with
+              images (point at it for the count); each grey bar is one visit. ▼ = the visits shown in the flipbook.
+              Click a row to show that detector.</figcaption>
             <div id="tl-chart"></div>
+            <p class="help tl-legend" aria-label="Line colours">
+              <span>Images per day (UTC):</span>
+              <span><i class="tl-one"></i>1</span>
+              <span><i></i>2–9</span>
+              <span><i class="tl-many"></i>10 or more</span>
+            </p>
           </figure>
           <div id="tl-summary"></div>
         </div>
@@ -595,6 +544,46 @@
         </div>
       </section>
     </section>
+
+    <aside id="inspector" class="panel inspector sky-panel" aria-labelledby="map-title">
+      <div class="inspector-head">
+        <h2 id="map-title" class="panel-title">Sky map</h2>
+        <button type="button" id="inspector-close" class="btn btn-small inspector-close">Done</button>
+      </div>
+      <div id="aladin" class="aladin" aria-label="Interactive sky map. Click to choose a position.">
+        <p class="map-message" id="map-message">Loading the sky map…</p>
+      </div>
+      <p class="help map-help">Drag to pan, scroll to zoom, click to choose a position. The white square is the field of view.</p>
+      <label class="inline-label" for="survey"><span>Background</span>
+        <select id="survey"></select>
+      </label>
+
+      <section class="inspector-group" aria-labelledby="position-title">
+        <h3 id="position-title" class="inset-card-title">Your position</h3>
+        <div id="selection" class="selection">
+          <p class="muted selection-empty">No position chosen yet. Pick a target, search at the top, or click the map.</p>
+        </div>
+      </section>
+
+      <div class="inset-card view-card" aria-labelledby="view-card-title">
+        <h3 id="view-card-title" class="inset-card-title">View settings</h3>
+        <div class="inset-row">
+          <div class="inset-row-label">
+            <span class="field-caption">Field of view</span>
+            <span class="inset-value"><output id="fov-value" for="fov">3</output> arcmin</span>
+          </div>
+          <input id="fov" name="fov" type="range" min="1" max="15" step="1" value="3" aria-label="Field of view in arcminutes">
+        </div>
+        <label class="inset-divider" for="det" aria-hidden="true"></label>
+        <div class="inset-row inset-row-select">
+          <span class="field-caption" id="det-label">SPHEREx detector</span>
+          <select id="det" name="det" class="inset-select" aria-labelledby="det-label"></select>
+        </div>
+      </div>
+
+    </aside>
+    </div>
+    <button type="button" id="sheet-backdrop" class="sheet-backdrop" aria-label="Close the sky map" tabindex="-1" hidden></button>
   </main>
 
   <footer class="site-footer">

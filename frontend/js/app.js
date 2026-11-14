@@ -1,13 +1,11 @@
 import { matchCatalog } from "./catalog.js";
 import { formatDec, formatRa, looksLikeName, parseCoordinates, parseField, splitPastedPair } from "./coords.js";
+import { createFlipbook } from "./flipbook.js";
 import { positionAt, separationArcsec, VIEW_EPOCH } from "./motion.js";
 import { NameNotFound, resolveName } from "./resolve.js";
 import { detectorsRated, RATINGS, TARGETS } from "./targets.js";
+import { createTimeline } from "./timeline.js";
 import { buildUrlState, DETECTORS, readUrlState, VIEW_DEFAULTS } from "./urlstate.js";
-// TODO B2: flipbook.js, timeline.js (and show the .flipbook section)
-// TODO B4: diffview.js, proof.js
-// TODO P2-3: lightcurve.js, spectrum.js, scientist.js
-// TODO P2-4: spots.js, recovery.js, visitflip.js, files.js
 
 // Aladin Lite from two CDNs: the CDS server was unreachable on 31 Oct 2026, jsDelivr worked.
 const ALADIN_SCRIPTS = [
@@ -22,10 +20,15 @@ const SURVEYS = [
   { id: "allwise", name: "AllWISE mid-infrared (W1, W2, W4)", url: "https://skies.esac.esa.int/AllWISEColor" },
   { id: "dss2", name: "DSS2 visible light", url: "https://skies.esac.esa.int/DSSColor" },
 ];
+// The background surveys look very dark in the small map; lift them a little.
+const MAP_LOOK = { brightness: 0.1 };
 
-const COORD_PLACEHOLDERS = { deg: ["269.452", "+4.693"], hms: ["17h57m48.5s", "+04d41m36s"] };
+const COORD_PLACEHOLDERS = { deg: ["RA 269.452", "Dec +4.693"], hms: ["RA 17h57m48.5s", "Dec +04d41m36s"] };
 const COORD_APPLY_MS = 800;   // pause in typing before a valid position is used
 const ONBOARD_KEY = "spherex-blink-guide-dismissed";
+const INSPECTOR_KEY = "spherex-blink-inspector-hidden";
+// Same width as the one-column breakpoint in style.css: below it the inspector is a bottom sheet.
+const phoneLayout = window.matchMedia("(max-width: 900px)");
 
 const $ = (id) => document.getElementById(id);
 const form = $("search-form");
@@ -46,6 +49,10 @@ const mapMessage = $("map-message");
 const suggestionsBox = $("query-suggestions");
 const catalogList = $("catalog-list");
 const catalogFilter = $("catalog-filter");
+const split = $("split");
+const inspectorToggle = $("inspector-toggle");
+const sheetBackdrop = $("sheet-backdrop");
+const shareButton = $("share-btn");
 
 const state = { ra: null, dec: null, fov: 3, det: 2, ...VIEW_DEFAULTS, source: "", note: "", targetKey: null };
 let catalog = [];
@@ -56,6 +63,8 @@ let fovOverlay = null;
 let positionVersion = 0;
 let coordUnit = "deg";
 let coordTimer = null;
+let flipbook = null;
+let timeline = null;
 
 function setStatus(message, kind = "info") {
   statusBox.textContent = message;
@@ -87,14 +96,24 @@ function officialTargetAt(ra, dec) {
   }) || null;
 }
 
+function refreshFlipbook() {
+  if (!flipbook || state.ra === null) return;
+  const target = chosenTarget();
+  const where = {
+    targetKey: state.targetKey, label: target ? target.label : "", ra: state.ra, dec: state.dec, det: state.det, fov: state.fov,
+  };
+  $("tl-view").closest(".workspace-detail").hidden = false;
+  flipbook.show(where);
+  timeline.show(where);
+}
+
 function setDetector(det) {
   state.det = det;
   detSelect.value = String(det);
   writeUrl();
   renderSelection();
+  refreshFlipbook();
 }
-
-// ---------- rendering ----------
 
 function chosenTarget() {
   return TARGETS.find((t) => t.key === state.targetKey) || null;
@@ -132,9 +151,8 @@ function targetCardDetectors(target) {
           return `<span class="det-chip det-${rating}${open}" title="D${n}${openHint}: ${why}">D${n}</span>`;
         })
         .join("");
-      const label = DET_TIER_LABELS[rating];
       return `<div class="target-det-tier" data-rating="${rating}">
-        <span class="target-det-tier-label">${label}</span>
+        <span class="target-det-tier-label">${DET_TIER_LABELS[rating]}</span>
         <span class="target-det-tier-chips">${chips}</span>
       </div>`;
     })
@@ -158,14 +176,8 @@ function renderTargets() {
     button.className = "target";
     button.setAttribute("aria-pressed", "false");
     button.dataset.key = target.key;
-    const timescale = target.timescaleLabel
-      ? `<span class="target-timescale" title="Physical time span this target is meant to show">${target.timescaleLabel}</span>`
-      : "";
     button.innerHTML = `
-      <span class="target-top">
-        <span class="target-name">${target.label}</span>
-        ${timescale}
-      </span>
+      <span class="target-name">${target.label}</span>
       <span class="target-kind">${target.kind}</span>
       <span class="target-hint">${target.lookFor}</span>
       <span class="target-dets">${targetCardDetectors(target)}</span>`;
@@ -180,6 +192,7 @@ function renderSelection() {
     button.setAttribute("aria-pressed", String(button.dataset.key === state.targetKey));
   }
   renderDetectors();
+  shareButton.disabled = state.ra === null;
   if (state.ra === null) return;
   const target = chosenTarget();
   const advice = target ? target.detectors[state.det] : null;
@@ -198,18 +211,11 @@ function renderSelection() {
         <span class="position-v position-view"${viewTitle}>${viewLine}</span></p>
       <p class="position-line position-line-meta"><span class="position-k">From</span>
         <span class="position-v position-from"></span></p>
-    </div>
-    <div class="share-row">
-      <button type="button" class="btn btn-small" id="copy-link">Copy share link</button>
-      <span class="help" id="copy-result" aria-live="polite"></span>
     </div>`;
   const fromEl = selectionBox.querySelector(".position-from");
   fromEl.textContent = foot ? `${state.source} · ${foot}` : state.source;
   if (advice?.why) fromEl.setAttribute("title", advice.why);
-  $("copy-link").addEventListener("click", copyLink);
 }
-
-// ---------- state changes ----------
 
 function writeUrl() {
   if (state.ra === null) return;
@@ -248,6 +254,7 @@ function applyPosition({ ra, dec, source, note = "", targetKey = null, queryText
   writeUrl();
   renderSelection();
   moveMap();
+  refreshFlipbook();
 }
 
 function chooseTarget(target) {
@@ -308,8 +315,6 @@ async function search(text) {
   }
 }
 
-// ---------- suggested names (local catalog, not SIMBAD) ----------
-
 async function loadCatalog() {
   try {
     const response = await fetch("/data/catalog.json");
@@ -364,7 +369,7 @@ function renderCatalogList(filterText = "") {
     const tag = entry.official ? ' <span class="suggest-badge">Official</span>' : "";
     return `<li class="catalog-item"><button type="button" data-idx="${i}">
       <span class="suggest-name">${entry.label}${tag}</span>
-      <div class="catalog-hint">${entry.category} — ${entry.hint}</div>
+      <div class="catalog-hint">${entry.category}: ${entry.hint}</div>
     </button></li>`;
   }).join("");
   for (const button of catalogList.querySelectorAll("button")) {
@@ -385,6 +390,17 @@ function wireCatalogUi() {
   if (catalogFilter) {
     catalogFilter.addEventListener("input", () => renderCatalogList(catalogFilter.value));
   }
+  const browse = $("catalog-browse");
+  browse.addEventListener("toggle", () => { if (browse.open) catalogFilter.focus(); });
+  document.addEventListener("click", (event) => {
+    if (browse.open && !browse.contains(event.target)) browse.open = false;
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && browse.open) {
+      browse.open = false;
+      browse.querySelector("summary").focus();
+    }
+  });
   renderCatalogList();
 }
 
@@ -436,28 +452,57 @@ function wireOnboarding() {
     const barnard = TARGETS.find((t) => t.key === "barnard");
     if (barnard) chooseTarget(barnard);
     closeGuide(true);
-    document.querySelector(".sky-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector(".flipbook")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
 async function copyLink() {
-  const result = $("copy-result");
   try {
     await navigator.clipboard.writeText(location.href);
-    result.textContent = "Link copied.";
+    shareButton.textContent = "Copied";
+    setTimeout(() => { shareButton.textContent = "Share"; }, 1500);
   } catch {
-    result.textContent = location.href;
+    setStatus(`Copy this link: ${location.href}`, "info");
   }
 }
 
-// ---------- "Enter coordinates" tab ----------
+// The sky map panel: a column that can be hidden on wide screens (remembered),
+// a bottom sheet on narrow ones (closed until asked for).
 
-function showSearchTab(tabId) {
-  for (const [tab, panel] of [[$("tab-name"), form], [$("tab-coords"), coordForm]]) {
-    const on = tab.id === tabId;
-    tab.setAttribute("aria-selected", String(on));
-    panel.hidden = !on;
+function inspectorOpen() {
+  return phoneLayout.matches ? split.classList.contains("sheet-open") : !split.classList.contains("inspector-closed");
+}
+
+function syncInspector() {
+  const open = inspectorOpen();
+  inspectorToggle.setAttribute("aria-expanded", String(open));
+  sheetBackdrop.hidden = !(phoneLayout.matches && open);
+  document.body.classList.toggle("sheet-locked", phoneLayout.matches && open);
+}
+
+function setInspector(open) {
+  if (phoneLayout.matches) {
+    split.classList.toggle("sheet-open", open);
+  } else {
+    split.classList.toggle("inspector-closed", !open);
+    localStorage.setItem(INSPECTOR_KEY, open ? "0" : "1");
   }
+  syncInspector();
+}
+
+function wireInspector() {
+  split.classList.toggle("inspector-closed", localStorage.getItem(INSPECTOR_KEY) === "1");
+  inspectorToggle.addEventListener("click", () => setInspector(!inspectorOpen()));
+  $("inspector-close").addEventListener("click", () => setInspector(false));
+  sheetBackdrop.addEventListener("click", () => setInspector(false));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && phoneLayout.matches && inspectorOpen() && $("onboard-guide").hidden) setInspector(false);
+  });
+  phoneLayout.addEventListener("change", () => {
+    split.classList.remove("sheet-open");
+    syncInspector();
+  });
+  syncInspector();
 }
 
 function readCoordBoxes() {
@@ -542,8 +587,6 @@ function onCoordPaste(event) {
   onCoordInput();
 }
 
-// ---------- sky map ----------
-
 // The npm build of Aladin Lite 3.8 is an ES module (export default), not a global script.
 async function loadAladin() {
   for (const src of ALADIN_SCRIPTS) {
@@ -587,6 +630,7 @@ async function startMap() {
     showCooGrid: false,
     showFrame: true,
   });
+  aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
   fovOverlay = A.graphicOverlay({ color: "#ffffff", lineWidth: 2 });
   aladin.addOverlay(fovOverlay);
   // Aladin sometimes reports the end of a pan as a click; only a still press picks a position.
@@ -615,13 +659,12 @@ async function startMap() {
 function changeSurvey() {
   const survey = SURVEYS.find((s) => s.id === surveySelect.value);
   if (!aladin || !survey) return;
-  aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name }));
+  aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
 }
-
-// ---------- start ----------
 
 async function start() {
   await loadCatalog();
+  wireInspector();
   wireOnboarding();
   wireCatalogUi();
   renderDetectors();
@@ -634,6 +677,16 @@ async function start() {
   fovValue.textContent = String(state.fov);
   detSelect.value = String(state.det);
   if (fromUrl.problems.length) setStatus(fromUrl.problems.join(" "), "warn");
+  timeline = createTimeline({ onDetector: setDetector });
+  flipbook = createFlipbook({
+    onDetector: setDetector,
+    onFrames: (loaded) => timeline.markFrames(loaded),
+    view: state,
+    onView: (changes) => {
+      Object.assign(state, changes);
+      writeUrl();
+    },
+  });
   if (fromUrl.ra !== null) {
     const target = officialTargetAt(fromUrl.ra, fromUrl.dec);
     applyPosition({
@@ -650,8 +703,7 @@ async function start() {
     event.preventDefault();
     search(query.value);
   });
-  $("tab-name").addEventListener("click", () => showSearchTab("tab-name"));
-  $("tab-coords").addEventListener("click", () => showSearchTab("tab-coords"));
+  shareButton.addEventListener("click", copyLink);
   coordForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!useCoordBoxes()) setStatus(coordPreview.textContent, "error");
@@ -671,6 +723,7 @@ async function start() {
     writeUrl();
     renderSelection();
     moveMap();
+    refreshFlipbook();
   });
   detSelect.addEventListener("change", () => setDetector(Number(detSelect.value)));
   surveySelect.addEventListener("change", changeSurvey);
