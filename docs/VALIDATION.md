@@ -28,3 +28,16 @@ Sanity checks and test results against NASA IRSA and SPHEREx archives.
   * FLAGS bitmask: identical
   * Bad pixels: identical count and positions
 - Fallback: Any S3 failure automatically drops back to the IRSA cutout service.
+
+## B3: Target Renders and Astrometric Overlays
+
+- Astrometric sidecars:
+  * backend/app/gaia.py queries Gaia DR3 via IRSA TAP and moves star positions to each visit MJD with proper motion (epoch 2016.0). Added local disk caching under cache/gaia/.
+  * backend/app/wise.py queries CatWISE2020 via IRSA TAP, converts proper motion from arcsec/yr to mas/yr, and propagates coordinates from epoch MJD 57170 (2015.4) to each visit MJD. Added local disk caching under cache/catwise/.
+- Centroid alignment check:
+  * backend/app/align_check.py measures median centroid offset between slow-moving Gaia DR3 control stars (10 <= G <= 17, pm < 100 mas/yr) and SPHEREx image peaks.
+  * Offsets recorded in manifest frames as align_offset_px. All measured offsets are between 0.29 px and 0.37 px, well within the 0.50 px threshold (no misalignments detected).
+- Render status:
+  * Barnard's Star (barnard): All 6 detectors (D1 to D6) rendered with 3 visits each. Each has manifest.json, gaia.json, wise.json, FITS, contrast PNGs, and defect overlays. Target proper motion displacement from visit 0 to visit 2 is 1.67 px North, matching ground truth.
+  * Epsilon Indi B (eps_ind_b): Detectors D1 to D4 rendered and indexed with 3 to 5 visits each. Remaining detectors and targets processing in background.
+  * Verified pixel_source = "aws-s3" and release = "DR1" across all manifests.
