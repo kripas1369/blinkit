@@ -1,28 +1,32 @@
-=== SPHEREx S3 vs IRSA Parity Verification ===
+# python -m scripts.parity_check, run from Nepal
+=== S3 byte-range reader vs IRSA cutout service ===
+position RA=269.44627 Dec=4.7682, box 0.05 deg, run 2026-11-14 18:40 UTC
 
-Exposure: 2026W12_1A_0311_1D2
-  S3 key: dr1/level2/2026W12_1A/l2b-v27-2026-235/2/level2_2026W12_1A_0311_1D2_spx_l2b-v27-2026-235.fits
-  Coordinates: RA=269.44627, Dec=+4.76820
-  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
-  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
-  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
-  WAVELENGTH: 1.3155 um (bw: 0.0317 um)
-  Parity: VERIFIED (Exact byte/numeric match)
+level2_2025W35_1A_0444_1D2_spx_l2b_retry-v27-2026-230.fits
+  box: S3 (29, 29), IRSA (29, 29)
+  IMAGE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  VARIANCE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  ZODI: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  FLAGS: 841 pixels compared, 0 differ
+  wavelength, bandwidth at the star (um): S3 (1.2384, 0.0298), IRSA (1.2384, 0.0298)
+  result: IDENTICAL
 
-Exposure: 2025W34_1B_0164_1D2
-  S3 key: dr1/level2/2025W34_1B/l2b-v27-2026-235/2/level2_2025W34_1B_0164_1D2_spx_l2b-v27-2026-235.fits
-  Coordinates: RA=269.44627, Dec=+4.76820
-  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
-  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
-  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
-  WAVELENGTH: 1.4281 um (bw: 0.0322 um)
-  Parity: VERIFIED (Exact byte/numeric match)
+level2_2026W12_1A_0311_1D2_spx_l2b-v27-2026-235.fits
+  box: S3 (29, 29), IRSA (29, 29)
+  IMAGE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  VARIANCE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  ZODI: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  FLAGS: 841 pixels compared, 0 differ
+  wavelength, bandwidth at the star (um): S3 (1.3155, 0.0317), IRSA (1.3155, 0.0317)
+  result: IDENTICAL
 
-Exposure: 2026W34_1C_0222_1D2
-  S3 key: dr1/level2/2026W34_1C/l2b-v27-2026-235/2/level2_2026W34_1C_0222_1D2_spx_l2b-v27-2026-235.fits
-  Coordinates: RA=269.44627, Dec=+4.76820
-  IMAGE: shape=(29, 29), dtype=float32, max_diff=0.0
-  FLAGS: shape=(29, 29), dtype=int32, diff_count=0
-  VARIANCE: shape=(29, 29), dtype=float32, max_diff=0.0
-  WAVELENGTH: 1.4312 um (bw: 0.0322 um)
-  Parity: VERIFIED (Exact byte/numeric match)
+level2_2026W34_2A_0264_2D2_spx_l2b-v27-2026-243.fits
+  box: S3 (29, 29), IRSA (29, 29)
+  IMAGE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  VARIANCE: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  ZODI: 841 pixels compared, max |S3 - IRSA| = 0.0, same NaN pixels: True
+  FLAGS: 841 pixels compared, 0 differ
+  wavelength, bandwidth at the star (um): S3 (1.5389, 0.0376), IRSA (1.5389, 0.0376)
+  result: IDENTICAL
+
+3 of 3 exposures identical
