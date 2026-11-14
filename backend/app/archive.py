@@ -14,7 +14,7 @@ from astropy.io import fits, votable
 
 from backend.app.config import (
     CACHE_DIR, COLLECTIONS, CUTOUT_CACHE_MAX_GB, CUTOUT_URL, DETECTORS, DROP_PSF_FROM_CUTOUTS,
-    MAX_PARALLEL_DOWNLOADS, RETRIES, TAP_URL,
+    MAX_PARALLEL_DOWNLOADS, RETRIES, SPHEREX_PIXELS, TAP_URL,
 )
 from backend.app.coords import mjd_to_date
 from backend.app.flags import bad_pixel_bitmask, flag_bits
@@ -306,11 +306,24 @@ def download_cutout(image: SpherexImage, ra: float, dec: float, size_deg: float 
     makes each about 5 MB however small the picture is. With DROP_PSF_FROM_CUTOUTS the PSF is left out
     of the saved file; the other extensions and all headers are kept byte for byte.
     """
-    if image.path is None:
-        raise ArchiveError("Call attach_paths() before downloading")
     target = cutout_file(image, ra, dec, size_deg)
     if target.exists():
         return target
+
+    # Read bounding box rows directly from S3 when enabled and key is present
+    if SPHEREX_PIXELS == "s3" and image.s3_key:
+        try:
+            from backend.app.s3_reader import S3NotInImage, read_box
+            read_box(image.s3_key, ra, dec, size_deg, target_path=target)
+            return target
+        except S3NotInImage as exc:
+            raise NotInImage(str(exc)) from exc
+        except Exception:
+            # Fall back to IRSA cutout service if S3 read fails
+            pass
+
+    if image.path is None:
+        raise ArchiveError("Call attach_paths() before downloading")
     target.parent.mkdir(parents=True, exist_ok=True)
 
     params = {"ra": ra, "dec": dec, "size": size_deg, "path": image.path}
