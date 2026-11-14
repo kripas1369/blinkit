@@ -5,7 +5,10 @@
 SPHEREx images come from NASA IRSA (search) and IRSA's public AWS copy (pixels), not from api.nasa.gov.
     /api/health
     /api/resolve?name=                         SIMBAD position and proper motion
+    /api/coverage?ra=&dec=[&band=]             SPHEREx images covering the point
+    /api/releases                              SPHEREx collection counts and date span
 """
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Query
@@ -13,14 +16,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.app import archive
+from backend.app.coverage import coverage_answer
 from backend.app.motion import position_at, separation_arcsec
 from backend.app.resolve import ResolverUnavailable, resolve_name
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 POSITION_YEAR = 2026.0   # SIMBAD positions are moved to this date, like the frames
+COVERAGE_CACHE_SECONDS = 3600
 
 app = FastAPI(title="Blinkit API", docs_url="/api/docs", openapi_url="/api/openapi.json")
+_coverage_cache: dict[tuple, tuple[float, dict]] = {}
 
 
 class ApiError(Exception):
@@ -71,7 +78,30 @@ def resolve(name: str = Query(..., min_length=1, max_length=100)):
     return {**star, "source": f"SIMBAD ({star['server']})", "position_now": moved}
 
 
-# TODO: /api/coverage and /api/releases (need archive.py and coverage.py)
+@app.get("/api/coverage")
+def coverage(
+    ra: float = Query(..., ge=0, lt=360),
+    dec: float = Query(..., ge=-90, le=90),
+    band: int | None = Query(None, ge=1, le=6),
+):
+    key = (round(ra, 5), round(dec, 5), band)
+    cached = _coverage_cache.get(key)
+    if cached and time.time() - cached[0] < COVERAGE_CACHE_SECONDS:
+        return cached[1]
+    try:
+        answer = coverage_answer(ra, dec, band)
+    except archive.ArchiveError as exc:
+        raise ApiError(502, f"IRSA did not answer: {exc}")
+    _coverage_cache[key] = (time.time(), answer)
+    return answer
+
+
+@app.get("/api/releases")
+def releases():
+    try:
+        return archive.releases()
+    except archive.ArchiveError as exc:
+        raise ApiError(502, f"IRSA did not answer: {exc}")
 
 
 @app.get("/api/{rest:path}")
