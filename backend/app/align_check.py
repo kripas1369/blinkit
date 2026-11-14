@@ -58,7 +58,8 @@ def measure_align_offset(
                         cy = peak_y - 1 + np.sum(yy * patch_pos) / p_sum
                         cx = peak_x - 1 + np.sum(xx * patch_pos) / p_sum
                         dist = float(np.hypot(cx - x_exp, cy - y_exp))
-                        offsets.append(dist)
+                        if dist < 2.5:
+                            offsets.append(dist)
 
     if not offsets:
         return None

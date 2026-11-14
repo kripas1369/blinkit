@@ -2,6 +2,7 @@
 import concurrent.futures as cf
 import io
 import json
+import threading
 import time
 from dataclasses import asdict, dataclass
 from functools import lru_cache
@@ -48,6 +49,7 @@ class SpherexImage:
 
 
 TAP_TIMEOUT_SECONDS = 300
+_IRSA_CUTOUT_SEMAPHORE = threading.Semaphore(MAX_PARALLEL_DOWNLOADS)
 
 
 class _TimedSession(requests.Session):
@@ -328,22 +330,23 @@ def download_cutout(image: SpherexImage, ra: float, dec: float, size_deg: float 
 
     params = {"ra": ra, "dec": dec, "size": size_deg, "path": image.path}
     last = None
-    for attempt in range(RETRIES):
-        try:
-            resp = requests.get(CUTOUT_URL, params=params, timeout=180)
-        except requests.RequestException as exc:
-            last = exc
-        else:
-            if resp.status_code == 200 and resp.content[:6] == b"SIMPLE":
-                tmp = target.with_suffix(".part")
-                _save_cutout(resp.content, tmp)
-                tmp.rename(target)
-                return target
-            if resp.status_code == 404:
-                raise NotInImage(f"{image.did} does not contain RA={ra:.5f} Dec={dec:.5f}")
-            last = f"HTTP {resp.status_code}: {resp.text[:100]!r}"
-        time.sleep(2 ** attempt)
-    raise ArchiveError(f"Cutout failed after {RETRIES} tries for {image.did}: {last}")
+    with _IRSA_CUTOUT_SEMAPHORE:
+        for attempt in range(RETRIES):
+            try:
+                resp = requests.get(CUTOUT_URL, params=params, timeout=180)
+            except requests.RequestException as exc:
+                last = exc
+            else:
+                if resp.status_code == 200 and resp.content[:6] == b"SIMPLE":
+                    tmp = target.with_suffix(".part")
+                    _save_cutout(resp.content, tmp)
+                    tmp.rename(target)
+                    return target
+                if resp.status_code == 404:
+                    raise NotInImage(f"{image.did} does not contain RA={ra:.5f} Dec={dec:.5f}")
+                last = f"HTTP {resp.status_code}: {resp.text[:100]!r}"
+            time.sleep(2 ** attempt)
+        raise ArchiveError(f"Cutout failed after {RETRIES} tries for {image.did}: {last}")
 
 
 def _save_cutout(content: bytes, path: Path) -> None:

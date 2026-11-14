@@ -171,11 +171,11 @@ Top level: `target`, `band`, `size_px`, `unit`, `limit_sigma` (5), `colours` (`b
 
 ## 7. `epoch<i>.fits` (the values behind each picture)
 
-Primary HDU with `PIXSRC` keyword (`aws-s3` or `irsa-cutout`), then 4 image extensions:
+Primary HDU with `PIXSRC` keyword (`aws-s3`, `irsa-cutout`, or `mixed`), then 4 image extensions:
 - `IMAGE`: float32, MJy/sr (IMAGE − ZODI)
 - `SIGMA`: float32, MJy/sr (1σ noise from VARIANCE)
 - `FLAGGED`: uint8 (1 = flagged bad)
 - `HAS_VALUE`: uint8 (1 = has a usable value)
 
-Each header contains the grid WCS plus `BUNIT`, `MJD-AVG`, `NIMAGES`, `DETECTOR`, `MODE`.
+Each header contains the grid WCS plus `BUNIT`, `MJD-AVG`, `NIMAGES`, `DETECTOR`, `MODE`, and `PIXSRC`.
 
