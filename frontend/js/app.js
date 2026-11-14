@@ -5,7 +5,7 @@ import { positionAt, separationArcsec, VIEW_EPOCH } from "./motion.js";
 import { NameNotFound, resolveName } from "./resolve.js";
 import { detectorsRated, RATINGS, TARGETS } from "./targets.js";
 import { createTimeline } from "./timeline.js";
-import { buildUrlState, DETECTORS, readUrlState, VIEW_DEFAULTS } from "./urlstate.js";
+import { buildUrlState, DETECTORS, FOV_MAX, readUrlState, VIEW_DEFAULTS } from "./urlstate.js";
 
 // Aladin Lite from two CDNs: the CDS server was unreachable on 31 Oct 2026, jsDelivr worked.
 const ALADIN_SCRIPTS = [
@@ -53,6 +53,19 @@ const split = $("split");
 const inspectorToggle = $("inspector-toggle");
 const sheetBackdrop = $("sheet-backdrop");
 const shareButton = $("share-btn");
+const fovSlowNote = $("fov-slow-note");
+const fovFastMover = $("fov-fast-mover");
+const dataReleases = $("data-releases");
+const mapGaiaCat = $("map-gaia-cat");
+const mapWiseCat = $("map-wise-cat");
+
+// Rough job cost for custom positions (fill from VALIDATION.md B2 when measured).
+const FOV_JOB_HINT = {
+  16: { mb: "~80", min: "~4" },
+  20: { mb: "~120", min: "~6" },
+  25: { mb: "~180", min: "~10" },
+  30: { mb: "~250", min: "~15" },
+};
 
 const state = { ra: null, dec: null, fov: 3, det: 2, ...VIEW_DEFAULTS, source: "", note: "", targetKey: null };
 let catalog = [];
@@ -65,6 +78,7 @@ let coordUnit = "deg";
 let coordTimer = null;
 let flipbook = null;
 let timeline = null;
+let mapCatalogs = { gaia: null, wise: null };
 
 function setStatus(message, kind = "info") {
   statusBox.textContent = message;
@@ -102,7 +116,8 @@ function refreshFlipbook() {
   const where = {
     targetKey: state.targetKey, label: target ? target.label : "", ra: state.ra, dec: state.dec, det: state.det, fov: state.fov,
   };
-  $("tl-view").closest(".workspace-detail").hidden = false;
+  const detail = document.querySelector(".workspace-detail");
+  if (detail) detail.hidden = false;
   flipbook.show(where);
   timeline.show(where);
 }
@@ -113,6 +128,73 @@ function setDetector(det) {
   writeUrl();
   renderSelection();
   refreshFlipbook();
+}
+
+function updateFovSlowNote() {
+  if (!fovSlowNote) return;
+  if (state.fov > 15) {
+    const hint = FOV_JOB_HINT[state.fov] || FOV_JOB_HINT[30];
+    fovSlowNote.textContent =
+      `Slower at ${state.fov}′: preparing a new patch can download about ${hint.mb} MB and take about ${hint.min} minutes (depends on IRSA). Prepared official targets stay at 3′.`;
+    fovSlowNote.hidden = false;
+  } else {
+    fovSlowNote.hidden = true;
+    fovSlowNote.textContent = "";
+  }
+}
+
+function releaseLabel(collection) {
+  return collection.replace(/^spherex_/i, "").toUpperCase();
+}
+
+async function loadDataReleases() {
+  if (!dataReleases) return;
+  try {
+    const rows = await fetch("/api/releases").then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const parts = rows.map((r) =>
+      `${releaseLabel(r.collection)} (${r.n_images.toLocaleString()} images, ${r.first}–${r.last})`);
+    dataReleases.textContent = `Data as of ${today}: ${parts.join("; ")}.`;
+  } catch {
+    dataReleases.textContent = "Could not load SPHEREx release counts from IRSA right now.";
+  }
+}
+
+function clearMapCatalog(which) {
+  if (!aladin || !mapCatalogs[which]) return;
+  aladin.removeCatalog(mapCatalogs[which]);
+  mapCatalogs[which] = null;
+}
+
+function syncMapCatalogs() {
+  if (!aladin || !A || state.ra === null) return;
+  const target = `${state.ra} ${state.dec}`;
+  const radius = Math.max(viewFovDegrees() / 2, 0.05);
+  if (mapGaiaCat?.checked) {
+    if (!mapCatalogs.gaia) {
+      mapCatalogs.gaia = A.catalogFromVizieR("I/355/gaiadr3", target, radius, {
+        color: "#9ad5ff", shape: "circle", sourceSize: 5, limit: 1500,
+      });
+      aladin.addCatalog(mapCatalogs.gaia);
+    }
+  } else clearMapCatalog("gaia");
+  if (mapWiseCat?.checked) {
+    if (!mapCatalogs.wise) {
+      mapCatalogs.wise = A.catalogFromVizieR("II/328/allwise", target, radius, {
+        color: "#ffb45a", shape: "square", sourceSize: 5, limit: 800,
+      });
+      aladin.addCatalog(mapCatalogs.wise);
+    }
+  } else clearMapCatalog("wise");
+}
+
+function refreshMapCatalogs() {
+  clearMapCatalog("gaia");
+  clearMapCatalog("wise");
+  syncMapCatalogs();
 }
 
 function chosenTarget() {
@@ -243,6 +325,7 @@ function moveMap() {
   aladin.gotoRaDec(state.ra, state.dec);
   aladin.setFoV(viewFovDegrees());
   drawFovBox();
+  refreshMapCatalogs();
 }
 
 function applyPosition({ ra, dec, source, note = "", targetKey = null, queryText = null, fromCoordBoxes = false }) {
@@ -675,7 +758,9 @@ async function start() {
   for (const key of ["fov", "det", ...Object.keys(VIEW_DEFAULTS)]) state[key] = fromUrl[key];
   fovInput.value = String(state.fov);
   fovValue.textContent = String(state.fov);
+  updateFovSlowNote();
   detSelect.value = String(state.det);
+  loadDataReleases();
   if (fromUrl.problems.length) setStatus(fromUrl.problems.join(" "), "warn");
   timeline = createTimeline({ onDetector: setDetector });
   flipbook = createFlipbook({
@@ -715,16 +800,36 @@ async function start() {
   for (const button of coordForm.querySelectorAll("[data-unit]")) {
     button.addEventListener("click", () => changeUnit(button.dataset.unit));
   }
+  fovInput.max = String(FOV_MAX);
   fovInput.addEventListener("input", () => {
     fovValue.textContent = fovInput.value;
+    state.fov = Number(fovInput.value);
+    updateFovSlowNote();
   });
   fovInput.addEventListener("change", () => {
     state.fov = Number(fovInput.value);
     writeUrl();
     renderSelection();
+    updateFovSlowNote();
     moveMap();
     refreshFlipbook();
   });
+  fovFastMover?.addEventListener("click", () => {
+    state.fov = FOV_MAX;
+    fovInput.value = String(FOV_MAX);
+    fovValue.textContent = String(FOV_MAX);
+    updateFovSlowNote();
+    writeUrl();
+    renderSelection();
+    moveMap();
+    refreshFlipbook();
+  });
+  for (const [box, key] of [[mapGaiaCat, "gaia"], [mapWiseCat, "wise"]]) {
+    box?.addEventListener("change", () => {
+      if (box.checked) syncMapCatalogs();
+      else clearMapCatalog(key);
+    });
+  }
   detSelect.addEventListener("change", () => setDetector(Number(detSelect.value)));
   surveySelect.addEventListener("change", changeSurvey);
 

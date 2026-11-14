@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SPHEREx Blink</title>
+  <title>Blinkit — SPHEREx</title>
   <meta name="description" content="The sky is never the same twice. Flip through SPHEREx visits and see what changed.">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -11,7 +11,7 @@
   <header class="site-header">
     <a class="brand" href="./">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name"><span class="brand-spherex">SPHEREx</span> <span class="brand-blink">Blink</span></span>
+      <span class="brand-name"><span class="brand-blinkit">Blinkit</span> <span class="brand-spherex">SPHEREx</span></span>
     </a>
 
     <form id="search-form" class="toolbar-search" role="search" autocomplete="off" novalidate>
@@ -111,6 +111,14 @@
       <section class="panel flipbook" aria-labelledby="flip-title">
         <div class="flip-head">
           <h2 id="flip-title">SPHEREx flipbook</h2>
+          <div id="flip-det-bar" class="flip-det-bar" role="toolbar" aria-label="Switch SPHEREx detector">
+            <button type="button" class="btn btn-small det-switch" data-det="1" aria-pressed="false">D1</button>
+            <button type="button" class="btn btn-small det-switch" data-det="2" aria-pressed="false">D2</button>
+            <button type="button" class="btn btn-small det-switch" data-det="3" aria-pressed="false">D3</button>
+            <button type="button" class="btn btn-small det-switch" data-det="4" aria-pressed="false">D4</button>
+            <button type="button" class="btn btn-small det-switch" data-det="5" aria-pressed="false">D5</button>
+            <button type="button" class="btn btn-small det-switch" data-det="6" aria-pressed="false">D6</button>
+          </div>
           <span id="flip-summary" class="flip-summary"></span>
         </div>
 
@@ -120,12 +128,14 @@
               <img id="flip-img" class="flip-layer" alt="" hidden>
               <img id="flip-flags" class="flip-layer flip-flags" alt="" hidden>
               <div id="flip-gaia" class="gaia-layer" aria-hidden="true" hidden></div>
+              <div id="flip-wise" class="gaia-layer wise-layer" aria-hidden="true" hidden></div>
               <span class="flip-target" aria-hidden="true" hidden></span>
               <span class="flip-compass" aria-hidden="true" hidden>N ↑ &nbsp;E ←</span>
               <span class="flip-scale" aria-hidden="true" hidden><span>1′</span><span class="flip-scale-bar"></span></span>
               <p id="flip-message" class="flip-message">Pick one of the 5 official targets to see its SPHEREx visits.</p>
             </div>
             <p id="flip-label" class="flip-label" aria-live="polite"></p>
+            <div id="flip-flag-legend" class="flip-flag-legend" hidden></div>
 
             <div class="flip-modes" role="tablist" aria-label="Flipbook mode">
               <button type="button" role="tab" id="mode-play" class="tab" aria-selected="true" aria-controls="play-controls">Play</button>
@@ -176,6 +186,7 @@
               <label class="check"><input type="checkbox" id="flip-show-gaia" checked> <span>Gaia DR3 markers</span></label>
               <label class="inline-label" for="flip-gaia-mag"><span>Stars</span> <select id="flip-gaia-mag"></select></label>
             </div>
+            <label class="check"><input type="checkbox" id="flip-show-wise"> <span>CatWISE2020 markers (orange squares)</span></label>
 
             <p id="flip-gaia-note" class="help"></p>
             <p id="flip-note" class="help flip-note"></p>
@@ -192,7 +203,79 @@
       </section>
     </div>
 
-    <section class="panel workspace-detail" aria-label="More from this patch of sky" hidden>
+    <aside id="inspector" class="panel inspector sky-panel" aria-labelledby="map-title">
+      <div class="inspector-head">
+        <h2 id="map-title" class="panel-title">Sky map</h2>
+        <button type="button" id="inspector-close" class="btn btn-small inspector-close">Done</button>
+      </div>
+      <div id="aladin" class="aladin" aria-label="Interactive sky map. Click to choose a position.">
+        <p class="map-message" id="map-message">Loading the sky map…</p>
+      </div>
+      <p class="help map-help">Drag to pan, scroll to zoom, click to choose a position. The white square is the field of view.</p>
+      <label class="inline-label" for="survey"><span>Background</span>
+        <select id="survey"></select>
+      </label>
+      <div class="inline-row map-catalog-toggles">
+        <label class="check"><input type="checkbox" id="map-gaia-cat"> <span>Gaia DR3 sources</span></label>
+        <label class="check"><input type="checkbox" id="map-wise-cat"> <span>AllWISE sources</span></label>
+      </div>
+
+      <section class="inspector-group" aria-labelledby="data-title">
+        <h3 id="data-title" class="inset-card-title">SPHEREx data</h3>
+        <p id="data-releases" class="help data-releases">Loading release info from IRSA…</p>
+      </section>
+
+      <section class="inspector-group" aria-labelledby="position-title">
+        <h3 id="position-title" class="inset-card-title">Your position</h3>
+        <div id="selection" class="selection">
+          <p class="muted selection-empty">No position chosen yet. Pick a target, search at the top, or click the map.</p>
+        </div>
+      </section>
+
+      <div class="inset-card view-card" aria-labelledby="view-card-title">
+        <h3 id="view-card-title" class="inset-card-title">View settings</h3>
+        <div class="inset-row">
+          <div class="inset-row-label">
+            <span class="field-caption">Field of view</span>
+            <span class="inset-value"><output id="fov-value" for="fov">3</output> arcmin</span>
+          </div>
+          <input id="fov" name="fov" type="range" min="1" max="30" step="1" value="3" aria-label="Field of view in arcminutes">
+        </div>
+        <p id="fov-slow-note" class="help fov-slow-note" hidden></p>
+        <button type="button" id="fov-fast-mover" class="btn btn-small fov-preset">Fast mover (30′)</button>
+        <label class="inset-divider" for="det" aria-hidden="true"></label>
+        <div class="inset-row inset-row-select">
+          <span class="field-caption" id="det-label">SPHEREx detector</span>
+          <select id="det" name="det" class="inset-select" aria-labelledby="det-label"></select>
+        </div>
+      </div>
+
+    </aside>
+    </div>
+
+    <section id="tl-view" class="panel wide-row timeline-panel" aria-labelledby="tl-title">
+        <div class="flip-head">
+          <h3 id="tl-title">When SPHEREx looked here</h3>
+        </div>
+        <p id="tl-message" class="help">Pick a target above or search for a star to load SPHEREx coverage for this position.</p>
+        <div id="tl-body" hidden>
+          <figure class="lc-figure">
+            <figcaption>Every SPHEREx image of this position, one row per detector. Each thin line is one day with
+              images (point at it for the count); each grey bar is one visit. ▼ = the visits shown in the flipbook.
+              Click a row to show that detector.</figcaption>
+            <div id="tl-chart"></div>
+            <p class="help tl-legend" aria-label="Line colours">
+              <span>Images per day (UTC):</span>
+              <span><i class="tl-one"></i>1</span>
+              <span><i></i>2–9</span>
+              <span><i class="tl-many"></i>10 or more</span>
+            </p>
+          </figure>
+          <div id="tl-summary"></div>
+        </div>
+    </section>
+
+    <section class="panel wide-row workspace-detail" aria-label="More from this patch of sky" hidden>
       <section id="sci-view" class="diffview sci-view" aria-labelledby="sci-title" hidden>
         <div class="flip-head">
           <h3 id="sci-title">Scientist view: raw pixels and flags</h3>
@@ -320,28 +403,6 @@
             </div>
           </div>
           <p id="iv-method" class="help"></p>
-        </div>
-      </section>
-
-      <section id="tl-view" class="diffview" aria-labelledby="tl-title" hidden>
-        <div class="flip-head">
-          <h3 id="tl-title">When SPHEREx looked here</h3>
-        </div>
-        <p id="tl-message" class="help" hidden></p>
-        <div id="tl-body" hidden>
-          <figure class="lc-figure">
-            <figcaption>Every SPHEREx image of this position, one row per detector. Each thin line is one day with
-              images (point at it for the count); each grey bar is one visit. ▼ = the visits shown in the flipbook.
-              Click a row to show that detector.</figcaption>
-            <div id="tl-chart"></div>
-            <p class="help tl-legend" aria-label="Line colours">
-              <span>Images per day (UTC):</span>
-              <span><i class="tl-one"></i>1</span>
-              <span><i></i>2–9</span>
-              <span><i class="tl-many"></i>10 or more</span>
-            </p>
-          </figure>
-          <div id="tl-summary"></div>
         </div>
       </section>
 
@@ -545,44 +606,6 @@
       </section>
     </section>
 
-    <aside id="inspector" class="panel inspector sky-panel" aria-labelledby="map-title">
-      <div class="inspector-head">
-        <h2 id="map-title" class="panel-title">Sky map</h2>
-        <button type="button" id="inspector-close" class="btn btn-small inspector-close">Done</button>
-      </div>
-      <div id="aladin" class="aladin" aria-label="Interactive sky map. Click to choose a position.">
-        <p class="map-message" id="map-message">Loading the sky map…</p>
-      </div>
-      <p class="help map-help">Drag to pan, scroll to zoom, click to choose a position. The white square is the field of view.</p>
-      <label class="inline-label" for="survey"><span>Background</span>
-        <select id="survey"></select>
-      </label>
-
-      <section class="inspector-group" aria-labelledby="position-title">
-        <h3 id="position-title" class="inset-card-title">Your position</h3>
-        <div id="selection" class="selection">
-          <p class="muted selection-empty">No position chosen yet. Pick a target, search at the top, or click the map.</p>
-        </div>
-      </section>
-
-      <div class="inset-card view-card" aria-labelledby="view-card-title">
-        <h3 id="view-card-title" class="inset-card-title">View settings</h3>
-        <div class="inset-row">
-          <div class="inset-row-label">
-            <span class="field-caption">Field of view</span>
-            <span class="inset-value"><output id="fov-value" for="fov">3</output> arcmin</span>
-          </div>
-          <input id="fov" name="fov" type="range" min="1" max="15" step="1" value="3" aria-label="Field of view in arcminutes">
-        </div>
-        <label class="inset-divider" for="det" aria-hidden="true"></label>
-        <div class="inset-row inset-row-select">
-          <span class="field-caption" id="det-label">SPHEREx detector</span>
-          <select id="det" name="det" class="inset-select" aria-labelledby="det-label"></select>
-        </div>
-      </div>
-
-    </aside>
-    </div>
     <button type="button" id="sheet-backdrop" class="sheet-backdrop" aria-label="Close the sky map" tabindex="-1" hidden></button>
   </main>
 
