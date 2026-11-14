@@ -29,7 +29,9 @@ Thumbs.db
 .vscode/
 
 # Hackathon data: fetched or generated locally, not versioned
+cache
 cache/
+scratch
 scratch/
 frontend/frames/
 
