@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+node_modules/
+cache/
+scratch/
+
+# API keys and local settings: never commit
+.env
+
+# prepared frames are copied to the server at deploy time, not kept in git
+frontend/frames/
