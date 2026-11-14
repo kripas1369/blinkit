@@ -299,7 +299,11 @@ export function createTimeline({ onDetector = () => {} } = {}) {
       if (v !== version) return;
       coverage = answer;
     } catch (err) {
-      if (v === version) { coverageKey = ""; message(String(err.message)); }
+      if (v === version) {
+        coverageKey = "";
+        message(`Could not get the list of SPHEREx images for this position (${err.message}). ` +
+          "NASA IRSA may be busy: the flipbook frames still work, and you can pick the target again in a few minutes.");
+      }
       return;
     }
     el.message.hidden = true;

@@ -59,14 +59,6 @@ const dataReleases = $("data-releases");
 const mapGaiaCat = $("map-gaia-cat");
 const mapWiseCat = $("map-wise-cat");
 
-// Rough job cost for custom positions (fill from VALIDATION.md B2 when measured).
-const FOV_JOB_HINT = {
-  16: { mb: "~80", min: "~4" },
-  20: { mb: "~120", min: "~6" },
-  25: { mb: "~180", min: "~10" },
-  30: { mb: "~250", min: "~15" },
-};
-
 const state = { ra: null, dec: null, fov: 3, det: 2, ...VIEW_DEFAULTS, source: "", note: "", targetKey: null };
 let catalog = [];
 let A = null;
@@ -133,9 +125,9 @@ function setDetector(det) {
 function updateFovSlowNote() {
   if (!fovSlowNote) return;
   if (state.fov > 15) {
-    const hint = FOV_JOB_HINT[state.fov] || FOV_JOB_HINT[30];
     fovSlowNote.textContent =
-      `Slower at ${state.fov}′: preparing a new patch can download about ${hint.mb} MB and take about ${hint.min} minutes (depends on IRSA). Prepared official targets stay at 3′.`;
+      `Slower at ${state.fov}′: each exposure covers a much larger patch, so preparing these frames ` +
+      "can take several minutes (it depends on how busy NASA IRSA is). The 5 prepared targets are 3′ wide.";
     fovSlowNote.hidden = false;
   } else {
     fovSlowNote.hidden = true;
@@ -154,12 +146,13 @@ async function loadDataReleases() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     });
-    const today = new Date().toISOString().slice(0, 10);
+    if (!rows.length) throw new Error("no releases");
+    const newest = rows.map((r) => r.last).sort().at(-1);
     const parts = rows.map((r) =>
-      `${releaseLabel(r.collection)} (${r.n_images.toLocaleString()} images, ${r.first}–${r.last})`);
-    dataReleases.textContent = `Data as of ${today}: ${parts.join("; ")}.`;
+      `${releaseLabel(r.collection)} (${r.n_images.toLocaleString()} images, ${r.first} to ${r.last})`);
+    dataReleases.textContent = `Data as of ${newest} (newest SPHEREx image at NASA IRSA). Releases: ${parts.join("; ")}.`;
   } catch {
-    dataReleases.textContent = "Could not load SPHEREx release counts from IRSA right now.";
+    dataReleases.textContent = "NASA IRSA did not answer, so the release list is not shown. Frames and search still work; reload later to try again.";
   }
 }
 
