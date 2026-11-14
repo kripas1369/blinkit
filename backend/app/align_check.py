@@ -43,17 +43,21 @@ def measure_align_offset(
         s_ra, s_dec = star_at(s, year)
         x_exp, y_exp = w.world_to_pixel_values(s_ra, s_dec)
         xc, yc = int(round(float(x_exp))), int(round(float(y_exp)))
-        if 2 <= xc < nx - 2 and 2 <= yc < ny - 2:
-            patch = image[yc - 1:yc + 2, xc - 1:xc + 2]
-            if np.all(np.isfinite(patch)) and np.max(patch) > 0:
-                patch_pos = np.maximum(patch, 0)
-                p_sum = patch_pos.sum()
-                if p_sum > 0:
-                    yy, xx = np.indices(patch.shape)
-                    cy = yc - 1 + np.sum(yy * patch_pos) / p_sum
-                    cx = xc - 1 + np.sum(xx * patch_pos) / p_sum
-                    dist = float(np.hypot(cx - x_exp, cy - y_exp))
-                    if dist < 1.5:
+        if 3 <= xc < nx - 3 and 3 <= yc < ny - 3:
+            search_patch = image[yc - 2:yc + 3, xc - 2:xc + 3]
+            if np.all(np.isfinite(search_patch)) and np.max(search_patch) > 0:
+                py, px = np.unravel_index(np.argmax(search_patch), search_patch.shape)
+                peak_y = yc - 2 + int(py)
+                peak_x = xc - 2 + int(px)
+                if 1 <= peak_x < nx - 1 and 1 <= peak_y < ny - 1:
+                    patch = image[peak_y - 1:peak_y + 2, peak_x - 1:peak_x + 2]
+                    patch_pos = np.maximum(patch, 0)
+                    p_sum = patch_pos.sum()
+                    if p_sum > 0:
+                        yy, xx = np.indices(patch.shape)
+                        cy = peak_y - 1 + np.sum(yy * patch_pos) / p_sum
+                        cx = peak_x - 1 + np.sum(xx * patch_pos) / p_sum
+                        dist = float(np.hypot(cx - x_exp, cy - y_exp))
                         offsets.append(dist)
 
     if not offsets:

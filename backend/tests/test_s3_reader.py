@@ -142,3 +142,56 @@ def test_live_s3_read_box(tmp_path):
     assert cleaned["wl_um"] == pytest.approx(1.3155, abs=0.001)
     assert cleaned["bw_um"] == pytest.approx(0.0317, abs=0.001)
     assert np.isfinite(cleaned["sigma"]).any()
+    assert cleaned["pixel_source"] == "aws-s3"
+
+
+def test_cache_key_different_collections():
+    """Verify that images with same obs_id but different collections produce distinct cache paths."""
+    from backend.app.archive import SpherexImage, cutout_file
+    im_qr3 = SpherexImage(
+        obs_id="2026W12_1A_0311_1", did="did1", detector=2,
+        mjd_start=61110.0, mjd_end=61110.1, wl_min_um=1.0, wl_max_um=2.0,
+        release_date="2026-03-11", collection="spherex_qr3"
+    )
+    im_dr1 = SpherexImage(
+        obs_id="2026W12_1A_0311_1", did="did2", detector=2,
+        mjd_start=61110.0, mjd_end=61110.1, wl_min_um=1.0, wl_max_um=2.0,
+        release_date="2026-03-11", collection="spherex_dr1"
+    )
+    p_qr3 = cutout_file(im_qr3, 269.45, 4.75, 0.05)
+    p_dr1 = cutout_file(im_dr1, 269.45, 4.75, 0.05)
+    assert p_qr3 != p_dr1
+    assert "spherex_qr3" in str(p_qr3)
+    assert "spherex_dr1" in str(p_dr1)
+
+
+def test_s3_fallback_records_irsa_source(tmp_path):
+    """When S3 read fails, verify download_cutout falls back to IRSA cutout and tags PIXSRC."""
+    from unittest.mock import MagicMock
+    from backend.app.archive import SpherexImage, download_cutout
+
+    im = SpherexImage(
+        obs_id="test_obs", did="test_did", detector=2,
+        mjd_start=61110.0, mjd_end=61110.1, wl_min_um=1.0, wl_max_um=2.0,
+        release_date="2026-03-11", collection="spherex_dr1",
+        s3_key="broken_key.fits", path="irsa/test.fits"
+    )
+    mock_hdul = fits.HDUList([
+        fits.PrimaryHDU(),
+        fits.ImageHDU(data=np.zeros((10, 10), dtype=np.float32), name="IMAGE"),
+        fits.ImageHDU(data=np.zeros((10, 10), dtype=np.int32), name="FLAGS"),
+        fits.ImageHDU(data=np.ones((10, 10), dtype=np.float32), name="VARIANCE"),
+        fits.ImageHDU(data=np.zeros((10, 10), dtype=np.float32), name="ZODI"),
+    ])
+    buf = io.BytesIO()
+    mock_hdul.writeto(buf)
+    mock_resp = MagicMock(status_code=200, content=buf.getvalue())
+
+    with patch("backend.app.s3_reader.read_box", side_effect=Exception("Connection refused")):
+        with patch("backend.app.archive.CACHE_DIR", tmp_path):
+            with patch("requests.get", return_value=mock_resp):
+                out = download_cutout(im, 269.45, 4.75, 0.05)
+                assert out.exists()
+                with fits.open(out) as h:
+                    assert h[0].header.get("PIXSRC") == "irsa-cutout"
+

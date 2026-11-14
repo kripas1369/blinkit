@@ -105,7 +105,15 @@ def frame_for_visit(exposures: list[tuple], mode: str) -> dict:
     }
 
     rel = "DR1" if any("dr1" in im.collection.lower() for im in images) else "QR3" if any("qr3" in im.collection.lower() for im in images) else images[0].collection.replace("spherex_", "").upper()
-    pixel_source = "aws-s3" if getattr(config, "SPHEREX_PIXELS", "cutout") == "s3" else "irsa-cutout"
+    pix_sources = {c.get("pixel_source") for _, c, _ in exposures if c.get("pixel_source")}
+    if pix_sources == {"aws-s3"}:
+        pixel_source = "aws-s3"
+    elif pix_sources == {"irsa-cutout"}:
+        pixel_source = "irsa-cutout"
+    elif len(pix_sources) > 1:
+        pixel_source = "mixed"
+    else:
+        pixel_source = "aws-s3" if getattr(config, "SPHEREX_PIXELS", "cutout") == "s3" else "irsa-cutout"
 
     frame = {
         "picture": picture,

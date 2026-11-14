@@ -57,6 +57,7 @@ def clean_cutout(path, ra: float | None = None, dec: float | None = None) -> dic
         }
         for name in BAD_FLAG_NAMES:
             flag_counts.setdefault(name, 0)
+        pixsrc = hdul[0].header.get("PIXSRC") or header.get("PIXSRC")
         return {
             "image": image,
             "sigma": sigma,
@@ -66,5 +67,6 @@ def clean_cutout(path, ra: float | None = None, dec: float | None = None) -> dic
             "wl_um": wl,
             "bw_um": bw,
             "flag_counts": flag_counts,
+            "pixel_source": pixsrc,
         }
 
