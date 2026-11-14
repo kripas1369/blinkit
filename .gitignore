@@ -1,14 +1,38 @@
+# Python
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .pytest_cache/
-.DS_Store
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.egg-info/
+dist/
+build/
+
+# Node (if added later)
 node_modules/
+
+# Local env & secrets — never commit
+.env
+.env.*
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Hackathon data: fetched or generated locally, not versioned
 cache/
 scratch/
-
-# API keys and local settings: never commit
-.env
-
-# prepared frames are copied to the server at deploy time, not kept in git
 frontend/frames/
+
+# Logs
+*.log
+npm-debug.log*
