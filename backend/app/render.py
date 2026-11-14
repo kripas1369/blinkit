@@ -17,6 +17,7 @@ from PIL import Image
 
 from backend.app import archive, config
 from backend.app.align import align, cutout_size_deg, target_grid
+from backend.app.align_check import measure_align_offset
 from backend.app.clean import clean_cutout
 from backend.app.coadd import coadd
 from backend.app.config import BAD_FLAG_NAMES, DETECTORS, PIXEL_SCALE_ARCSEC, REPO_ROOT
@@ -251,8 +252,20 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
         old.unlink()
 
     manifest_frames = []
+    manifest_notes = list(notes or [])
+    align_stars = None
+    try:
+        from backend.app.gaia import gaia_stars
+        align_stars = gaia_stars(ra, dec, 0.05)
+    except Exception:
+        pass
+
     for f in frames:
         p = f.pop("picture")
+        align_offset = measure_align_offset(p["image"], grid.to_header(), ra, dec, f["mjd"], stars=align_stars)
+        if align_offset is not None and align_offset > 0.5:
+            manifest_notes.append(f"possible misalignment in visit {f['epoch_id']} ({align_offset:.2f} px)")
+
         png, flags_png = f"epoch{f['epoch_id']}.png", f"epoch{f['epoch_id']}_flags.png"
         save_png(p["image"], p["covered"], scale, out_dir / png)
         save_flags_png(p["bad"], out_dir / flags_png)
@@ -279,6 +292,7 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
             "release": f["release"],
             "flag_counts": f["flag_counts"],
             "pixel_source": f["pixel_source"],
+            "align_offset_px": align_offset,
             **({"obs_id": f["obs_id"], "collection": f["collection"]} if "obs_id" in f else {}),
         })
 
@@ -304,10 +318,23 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
         "data_credit": "NASA/IPAC Infrared Science Archive (IRSA), SPHEREx",
         "collections_checked": list(config.COLLECTIONS),
         "newest_obs_date": mjd_to_date(newest_mjd)[:16].replace("T", " ") + " UTC",
-        "notes": notes or [],
+        "notes": manifest_notes,
         "frames": manifest_frames,
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+
+    try:
+        from backend.app.gaia import write_gaia
+        write_gaia(out_dir)
+    except Exception as exc:
+        print(f"  warning: write_gaia failed: {exc}")
+
+    try:
+        from backend.app.wise import write_wise
+        write_wise(out_dir)
+    except Exception as exc:
+        print(f"  warning: write_wise failed: {exc}")
+
     write_index(Path(out_root))
     print(f"wrote {out_dir}/manifest.json ({len(manifest_frames)} frames, mode {mode})")
     return manifest
@@ -324,15 +351,28 @@ def write_index(out_root: Path = DEFAULT_OUT) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("target", choices=[t["key"] for t in OFFICIAL_TARGETS])
-    parser.add_argument("detector", type=int, choices=sorted(DETECTORS))
+    parser.add_argument("target", nargs="?", choices=[t["key"] for t in OFFICIAL_TARGETS],
+                        help="Official target key")
+    parser.add_argument("detector", nargs="?", type=int, choices=sorted(DETECTORS),
+                        help="Detector number 1..6")
     parser.add_argument("--mode", choices=["coadd", "single"], default="coadd")
     parser.add_argument("--max-per-visit", type=int, default=8, help="exposures added per visit (coadd)")
     parser.add_argument("--fov", type=float, default=3.0, help="field of view in arcmin (default 3)")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--stretch", choices=["linear", "asinh"], default="linear",
                         help="asinh for very bright stars (brightness_scale)")
+    parser.add_argument("--write-index", action="store_true",
+                        help="Update index.json for all rendered frames and exit")
     args = parser.parse_args()
+
+    if args.write_index:
+        write_index(args.out)
+        print(f"Updated {args.out}/index.json")
+        return
+
+    if not args.target or not args.detector:
+        parser.error("target and detector are required unless --write-index is specified")
+
     print(f"{args.target} D{args.detector} ({args.mode})")
     make_frames(args.target, args.detector, args.mode, args.max_per_visit, args.fov, args.out, args.stretch)
 
