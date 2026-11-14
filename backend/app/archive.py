@@ -83,20 +83,30 @@ TAP_COOLDOWN_SECONDS = 300
 _tap_down = {"until": 0.0, "reason": ""}
 
 
+def _timed_out(exc: Exception) -> bool:
+    """pyvo wraps a requests timeout in DALServiceError(cause=...)."""
+    return isinstance(exc, requests.Timeout) or isinstance(getattr(exc, "cause", None), requests.Timeout)
+
+
 def _run(adql: str):
-    """Run an ADQL query, retrying when IRSA drops the connection or times out."""
+    """Run an ADQL query, retrying when IRSA drops the connection. A timeout is not retried: on 14 Nov 2026
+    a hanging TAP held 4 tries x 90 s (6 minutes) before the search could move on to SIA."""
     if time.monotonic() < _tap_down["until"]:
         raise ArchiveError(f"IRSA TAP is down (not retried for a few minutes): {_tap_down['reason']}")
     last = None
+    tries = 0
     for attempt in range(RETRIES):
+        tries += 1
         try:
             return _tap().run_sync(adql, maxrec=200_000).to_table()
         except (pyvo.dal.DALFormatError, pyvo.dal.DALServiceError, requests.ConnectionError,
                 requests.Timeout) as exc:
             last = exc
+            if _timed_out(exc):
+                break
             time.sleep(2 ** attempt)
     _tap_down.update(until=time.monotonic() + TAP_COOLDOWN_SECONDS, reason=str(last)[:200])
-    raise ArchiveError(f"IRSA TAP did not answer after {RETRIES} tries: {last}")
+    raise ArchiveError(f"IRSA TAP did not answer after {tries} tries: {last}")
 
 
 def run_query(adql: str):

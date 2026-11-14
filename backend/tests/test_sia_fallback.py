@@ -161,6 +161,27 @@ def test_tap_failing_every_try_is_not_retried_during_cooldown(monkeypatch, no_sl
     assert len(asked) == 2 * archive.RETRIES
 
 
+@pytest.mark.parametrize("error", [
+    requests.ReadTimeout("Read timed out. (read timeout=90)"),
+    archive.pyvo.dal.DALServiceError("Read timed out", cause=requests.ReadTimeout("Read timed out")),
+])
+def test_tap_timeout_is_not_retried(monkeypatch, no_sleep, error):
+    asked = []
+
+    class HangingTap:
+        def run_sync(self, adql, maxrec):
+            asked.append(adql)
+            raise error
+
+    monkeypatch.setattr(archive, "_tap", lambda: HangingTap())
+    with pytest.raises(ArchiveError, match="after 1 tries"):
+        archive._run("SELECT 1")
+    assert len(asked) == 1
+    with pytest.raises(ArchiveError, match="down"):
+        archive._run("SELECT 2")
+    assert len(asked) == 1
+
+
 def image(did: str, s3_key: str | None, path: str | None = None) -> SpherexImage:
     return SpherexImage(obs_id=did, did=did, detector=2, mjd_start=1.0, mjd_end=1.0, wl_min_um=1.1,
                         wl_max_um=1.6, release_date="", collection="spherex_dr1", path=path, s3_key=s3_key)
