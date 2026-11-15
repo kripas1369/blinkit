@@ -114,7 +114,12 @@ def main() -> int:
         return 0
 
     if args.sidecars_only:
+        from backend.app import archive
         from backend.app.render import write_index
+
+        # Skip waiting on a dead IRSA TAP: Gaia will use ESA; CatWISE writes empty if needed.
+        archive._tap_down.update(until=time.monotonic() + 3600, reason="sidecar pass prefers ESA Gaia")
+
         folders = []
         if args.all_existing or only is not None:
             keys = only if only is not None else [
@@ -123,11 +128,13 @@ def main() -> int:
             ]
             folders = [FRAMES / t / f"d{d}" for t, d in keys]
         else:
-            # Folders that exist but lack proof.json (incomplete after TAP outage).
+            # Folders that exist but lack gaia.json or proof.json.
             for t in OFFICIAL:
                 for d in DETECTORS:
                     p = FRAMES / t / f"d{d}"
-                    if (p / "manifest.json").is_file() and not (p / "proof.json").is_file():
+                    if (p / "manifest.json").is_file() and (
+                        not (p / "gaia.json").is_file() or not (p / "proof.json").is_file()
+                    ):
                         folders.append(p)
         for folder in folders:
             print(f"\n=== sidecars {folder.relative_to(FRAMES)} ===")

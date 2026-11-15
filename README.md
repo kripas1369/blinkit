@@ -51,10 +51,9 @@ Stack: Python 3.12+, **astropy**, **astroquery**, **pyvo**, **reproject**, **Fas
 
 ## Phase 1 status
 
-- **B1–B4 code:** complete on `main`. **B5 sign-off:** docs, scripts, README, `targets.js`, tag `phase1` (local).
-- **Data:** **10 of 30** frame folders on disk (barnard D1–D6, eps Ind B D1–D4); 20 renders waiting on IRSA TAP for Gaia/CatWISE post-steps.
-- Full block-by-block audit vs the hackathon plan: [docs/PHASE1_STATUS.md](docs/PHASE1_STATUS.md).
-- Measurements and tests: [docs/VALIDATION.md](docs/VALIDATION.md), pipeline: [docs/DATA_FLOW.md](docs/DATA_FLOW.md).
+- **B1–B5 code:** complete. Branch **`phase1-complete`** finished the **30/30** frame set (`scripts/check_frames.py` PASS).
+- **Data:** all five targets × D1–D6 under `frontend/frames/` (gitignored). Some Gaia/CatWISE sidecars are empty until IRSA TAP/ESA answers — re-run `python -m scripts.render_missing --sidecars-only --all-existing`.
+- Audit: [docs/PHASE1_STATUS.md](docs/PHASE1_STATUS.md). Measurements: [docs/VALIDATION.md](docs/VALIDATION.md). Pipeline: [docs/DATA_FLOW.md](docs/DATA_FLOW.md).
 
 ## AI disclosure
 

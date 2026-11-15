@@ -1,49 +1,44 @@
-"""Observer caveats and scientific notes for the flipbook, per (target, detector).
+"""Observer caveats for the flipbook, per (target, detector).
 
-Human blink observers need context on saturation, LVF wavelength, and alignment so
-instrumental effects are not mistaken for moving or variable objects. Notes are
-measured from the Nov 2026 DR1/QR3 renders where folders exist.
+Notes are measured from the Nov 2026 DR1/QR3 renders (30 folders). Catalogue overlays
+need IRSA TAP (or ESA Gaia); when TAP was down some folders got empty gaia/wise.json —
+those notes say so honestly.
 """
 import json
 import sys
 from pathlib import Path
 
 NOTES: dict[tuple[str, int], list[str]] = {
-    ("barnard", 1): [
-        "D1 (~0.94 µm): saturated point source; Gaia motion agrees (1.57 px vs 1.66 px). 2.5–3.9% flagged."
-    ],
-    ("barnard", 2): [
-        "D2 (~1.43 µm): best motion proof (1.61 px vs Gaia 1.67 px). Three visits, DR1+QR3, 0.31–0.36 px alignment."
-    ],
-    ("barnard", 3): [
-        "D3 (~1.85 µm): motion agrees; slightly more LVF slope across the 3 arcmin field than D2."
-    ],
-    ("barnard", 4): [
-        "D4 (~3.15 µm): motion agrees; highest flagged fraction of Barnard bands (~5.8%) on visit 0."
-    ],
-    ("barnard", 5): [
-        "D5 (~4.2 µm): motion agrees; low flagged fraction; still saturated at centre."
-    ],
-    ("barnard", 6): [
-        "D6 (~4.6 µm): motion not measurable in proof.json (centroid/saturated-core failed); use D2 for the walk demo."
-    ],
-    ("eps_ind_b", 1): [
-        "D1: brown dwarf faint at 0.97 µm; motion proof disagrees — use D2+ for astrometry."
-    ],
-    ("eps_ind_b", 2): [
-        "D2 (~1.42 µm): five visits, motion agrees (0.98 px vs 1.09 px); best stack S/N (2.18× vs one visit)."
-    ],
-    ("eps_ind_b", 3): [
-        "D3 (~1.95 µm): four visits; motion agrees; minus-median visit 4 needed sky offset fix (QR3 ZODI step)."
-    ],
-    ("eps_ind_b", 4): [
-        "D4 (~3.28 µm): three visits; motion agrees (0.65 px vs 0.75 px)."
-    ],
-    ("eps_ind_b", 5): ["Not rendered yet (IRSA TAP down 15 Nov 2026)."],
-    ("eps_ind_b", 6): ["Not rendered yet (IRSA TAP down 15 Nov 2026)."],
-    ("wise0855", 2): ["Not rendered yet; WISE 0855 needs D5–D6 when IRSA is back."],
-    ("rw_aur", 2): ["Not rendered yet; check variable brightness at matched wavelengths between visits."],
-    ("r_dra", 2): ["Not rendered yet; crowded field — read wl_target_um before calling a brightness change."],
+    ("barnard", 1): ["D1 (~0.94 µm): saturated; Gaia motion agrees (1.57 vs 1.66 px)."],
+    ("barnard", 2): ["D2 (~1.43 µm): best motion proof (1.61 vs Gaia 1.67 px). Three visits, DR1+QR3."],
+    ("barnard", 3): ["D3 (~1.85 µm): motion agrees (1.60 vs 1.68 px)."],
+    ("barnard", 4): ["D4 (~3.15 µm): motion agrees; highest Barnard flagged share (~5.8%)."],
+    ("barnard", 5): ["D5 (~4.2 µm): motion agrees (1.51 vs 1.67 px); still saturated at centre."],
+    ("barnard", 6): ["D6 (~4.6 µm): proof not measurable; use D2 for the walk demo."],
+    ("eps_ind_b", 1): ["D1: too faint at 0.97 µm; motion disagrees — prefer D2+."],
+    ("eps_ind_b", 2): ["D2: five visits; motion agrees (0.98 vs 1.09 px); best stack S/N."],
+    ("eps_ind_b", 3): ["D3: four visits; motion agrees (1.02 vs 1.06 px)."],
+    ("eps_ind_b", 4): ["D4: motion agrees (0.65 vs 0.75 px) at ~3.3 µm."],
+    ("eps_ind_b", 5): ["D5 (~4.1 µm): five visits rendered; Gaia overlay empty (TAP/ESA down at render)."],
+    ("eps_ind_b", 6): ["D6 (~4.7 µm): four visits rendered; Gaia overlay empty (TAP/ESA down at render)."],
+    ("wise0855", 1): ["D1 (~1.0 µm): three visits; Y-dwarf expected invisible here."],
+    ("wise0855", 2): ["D2: four visits; still short of 4–5 µm — treat as non-detection band."],
+    ("wise0855", 3): ["D3: three visits; plan: still faint until D5–D6."],
+    ("wise0855", 4): ["D4: three visits; approaching mid-IR."],
+    ("wise0855", 5): ["D5 (~4 µm): four visits, 30 exposures; best short of D6 for the cold dwarf."],
+    ("wise0855", 6): ["D6 (~4.5–5 µm): three visits; preferred band for WISE 0855 (blink here)."],
+    ("rw_aur", 1): ["D1: three visits (24 exposures); check brightness only at matched wl_target_um."],
+    ("rw_aur", 2): ["D2 (~1.3–1.5 µm): three visits; default for variability blink."],
+    ("rw_aur", 3): ["D3: three visits; LVF wavelengths differ between visits — read the label."],
+    ("rw_aur", 4): ["D4: three visits; may saturate — check pct_flagged before a light curve."],
+    ("rw_aur", 5): ["D5 (~4.0–4.3 µm): three visits rendered for multi-band compare."],
+    ("rw_aur", 6): ["D6 (~4.6–4.7 µm): three visits rendered."],
+    ("r_dra", 1): ["D1: five visits in a crowded deep field; 3–8% flagged."],
+    ("r_dra", 2): ["D2: three visits; Mira — wavelength range first, then brightness."],
+    ("r_dra", 3): ["D3: four visits; crowded field, higher flag rates."],
+    ("r_dra", 4): ["D4: five visits; 13–19% flagged — expect defect stripes."],
+    ("r_dra", 5): ["D5: three visits; 8–13% flagged."],
+    ("r_dra", 6): ["D6: four visits; visit 2 had hundreds of exposures available (capped at 8)."],
 }
 
 

@@ -168,20 +168,34 @@ def markers(
 
 
 def write_gaia(folder: Path) -> dict:
-    """gaia.json for a frames folder."""
+    """gaia.json for a frames folder.
+
+    If IRSA and ESA are both unreachable, still write an empty gaia.json so the flipbook
+    and check_frames can proceed; re-run this module when a catalogue answers again.
+    """
     manifest = json.loads((folder / "manifest.json").read_text())
     ra, dec, fov = manifest["ra"], manifest["dec"], manifest["fov_arcmin"]
     frames = manifest["frames"]
     years = [mjd_to_year(f["mjd"]) for f in frames]
     radius = search_radius_deg(fov, max(abs(y - GAIA_EPOCH) for y in years))
-    stars = gaia_stars(ra, dec, radius)
+    unavailable = None
+    try:
+        stars = gaia_stars(ra, dec, radius)
+    except archive.ArchiveError as exc:
+        print(f"  warning: Gaia query failed ({exc}); writing empty gaia.json")
+        stars = []
+        unavailable = str(exc)
+
     result = markers(ra, dec, fov, frames, stars, target_year=2026.0)
 
     gaia = {
         "format": FORMAT,
-        "catalogue": f"Gaia DR3 ({GAIA_TABLE} at NASA/IPAC IRSA)",
+        "catalogue": f"Gaia DR3 ({GAIA_TABLE} at NASA/IPAC IRSA; ESA fallback when IRSA is down)",
         "catalogue_epoch": GAIA_EPOCH,
-        "query": {"ra": ra, "dec": dec, "radius_deg": round(radius, 6), "n_returned": len(stars)},
+        "query": {
+            "ra": ra, "dec": dec, "radius_deg": round(radius, 6), "n_returned": len(stars),
+            **({"unavailable": unavailable} if unavailable else {}),
+        },
         "method": f"each Gaia DR3 position (epoch {GAIA_EPOCH}) moved in a straight line with its proper "
                   "motion to the frame's MJD; parallax not applied; stars without a Gaia proper motion "
                   "stay at their 2016.0 position",
@@ -192,7 +206,7 @@ def write_gaia(folder: Path) -> dict:
         "stars": result["stars"],
         "made_by": "backend/app/gaia.py",
         "made_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        "data_credit": "ESA Gaia DR3, via NASA/IPAC IRSA",
+        "data_credit": "ESA Gaia DR3, via NASA/IPAC IRSA (ESA archive fallback)",
     }
     (folder / "gaia.json").write_text(json.dumps(gaia, indent=1, ensure_ascii=False) + "\n")
     return gaia

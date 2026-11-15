@@ -53,22 +53,18 @@ Gaia DR3 positions (epoch 2016.0) and CatWISE2020 positions (epoch 2015.4) are m
 
 Alignment check: for slow-moving Gaia stars (G 10 to 17 mag, proper motion < 100 mas/yr) we find the brightest pixel in a 5x5 window around the predicted position, take a 3x3 centroid, and drop matches 2.5 px or farther away. If the median offset of a visit is above 0.50 px, the manifest gets a "possible misalignment" note. No rendered visit has that note.
 
-Target render status (from the manifests in `frontend/frames/`, rendered 14 Nov 2026, all pixel_source = aws-s3):
+Target render status (all 30 folders, `scripts/check_frames.py` 15 Nov 2026, all pixel_source = aws-s3).
+Full table: `docs/validation_output/check_frames_30.txt`. Summary:
 
-| Target | Detector | Visits | Exposures | Pixel Source | Release | Alignment Offset |
-|---|---|---|---|---|---|---|
-| Barnard's Star | D1 | 3 | 24 | aws-s3 | DR1+QR3 | 0.31–0.33 px |
-| Barnard's Star | D2 | 3 | 24 | aws-s3 | DR1+QR3 | 0.31–0.36 px |
-| Barnard's Star | D3 | 3 | 24 | aws-s3 | DR1+QR3 | 0.33–0.40 px |
-| Barnard's Star | D4 | 3 | 24 | aws-s3 | DR1+QR3 | 0.37–0.41 px |
-| Barnard's Star | D5 | 3 | 24 | aws-s3 | DR1+QR3 | 0.39–0.42 px |
-| Barnard's Star | D6 | 3 | 24 | aws-s3 | DR1+QR3 | 0.37–0.43 px |
-| Epsilon Indi B | D1 | 3 | 19 | aws-s3 | DR1 | 0.20–0.29 px |
-| Epsilon Indi B | D2 | 5 | 39 | aws-s3 | DR1+QR3 | 0.15–0.17 px |
-| Epsilon Indi B | D3 | 4 | 32 | aws-s3 | DR1+QR3 | 0.14–0.17 px |
-| Epsilon Indi B | D4 | 3 | 19 | aws-s3 | DR1 | 0.18–0.21 px |
+| Target | Detectors | Notes |
+|---|---|---|
+| Barnard's Star | D1–D6 | Align 0.31–0.43 px; Gaia motion agrees on D1–D5 |
+| Epsilon Indi B | D1–D6 | D1–D4 have Gaia proofs; D5–D6 rendered with empty Gaia (TAP/ESA down) |
+| WISE 0855 | D1–D6 | All rendered via SIA+S3; Gaia/CatWISE empty pending catalogue |
+| RW Aur | D1–D6 | Three visits each; Gaia empty pending catalogue |
+| R Dra | D1–D6 | Crowded deep field; up to five visits; Gaia empty pending catalogue |
 
-Not rendered yet (held back by IRSA TAP outages): Epsilon Indi B D5-D6, WISE 0855, RW Aur, R Dra.
+Re-run `python -m scripts.render_missing --sidecars-only --all-existing` when IRSA TAP or ESA Gaia answers, to fill overlays and refresh proofs.
 
 CatWISE target matching:
 In `wise.json`, `target_match` is null for both rendered targets, for different physical reasons:
@@ -125,54 +121,35 @@ Each frame's offset is recorded as `sky_change` in `diff.json`.
 
 ## 6. Pipeline and Frame Audit (B5)
 
-Output from `scripts/check_frames.py` (run 15 Nov 2026, saved in `docs/validation_output/check_frames.txt`):
+Output from `scripts/check_frames.py` (15 Nov 2026, **30/30**, saved in `docs/validation_output/check_frames_30.txt`):
 
 ```text
-Auditing 10 rendered target/detector folders under frontend/frames:
-
-Target       Det  Visits   Images   Pixel Source   Release      Align Offset (px)    Pct Flagged    Status    
-----------------------------------------------------------------------------------------------------------
-barnard      D1   3        24       aws-s3         DR1+QR3      0.31-0.33            2.5%-3.9%      PASS      
-barnard      D2   3        24       aws-s3         DR1+QR3      0.31-0.36            2.6%-3.6%      PASS      
-barnard      D3   3        24       aws-s3         DR1+QR3      0.33-0.40            2.7%-4.0%      PASS      
-barnard      D4   3        24       aws-s3         DR1+QR3      0.37-0.41            5.7%-5.9%      PASS      
-barnard      D5   3        24       aws-s3         DR1+QR3      0.39-0.42            0.8%-1.2%      PASS      
-barnard      D6   3        24       aws-s3         DR1+QR3      0.37-0.43            0.0%-0.8%      PASS      
-eps_ind_b    D1   3        19       aws-s3         DR1          0.20-0.29            0.0%-0.1%      PASS      
-eps_ind_b    D2   5        39       aws-s3         DR1+QR3      0.15-0.17            0.0%-0.0%      PASS      
-eps_ind_b    D3   4        32       aws-s3         DR1+QR3      0.14-0.17            0.0%-0.0%      PASS      
-eps_ind_b    D4   3        19       aws-s3         DR1          0.18-0.21            0.0%-0.1%      PASS      
-----------------------------------------------------------------------------------------------------------
-ALL CHECKS PASSED: 10 folders verified compliant with FRAMES_FORMAT.md (all pixel_source = aws-s3).
+ALL CHECKS PASSED: 30 folders verified compliant with FRAMES_FORMAT.md (all pixel_source = aws-s3).
 ```
 
-## 7. Phase 1 sign-off (B5, 15 Nov 2026)
+Earlier 10-folder audit kept in `docs/validation_output/check_frames.txt`.
 
-Automated runs: `python -m scripts.check_frames` (10/10 PASS), `python -m scripts.phase1_signoff`, backend **103 passed** pytest, frontend **54** npm tests.
+## 7. Phase 1 sign-off (B5, 15 Nov 2026) — branch `phase1-complete`
+
+Automated: `check_frames` **30/30 PASS**, `phase1_signoff`, backend **105** pytest, frontend npm tests.
+
+Rendered with **SIA + AWS S3** (`scripts/render_missing.py`) while IRSA TAP was returning 502/timeouts. Gaia/CatWISE: barnard + eps D1–D4 keep earlier overlays; **20 folders** have empty `gaia.json` / mostly empty `wise.json` with an `unavailable` note — re-fill with `--sidecars-only` when catalogues answer.
 
 ### Prepared-target checks (Kripas)
 
 | Check | Status | Evidence |
 |---|---|---|
-| Barnard's Star walks ~1.7 px; Gaia marker tracks | **Pass (D2)** | proof.json: 1.61 px vs 1.67 px; D1–D5 agree; D6 not measurable |
-| WISE 0855 faint D1–D3, visible D5–D6 | **Blocked** | No `wise0855/` frames yet (IRSA outage) |
-| Epsilon Indi B shift vs Gaia, separate from A | **Pass (D2–D4)** | proof agrees; D1 too faint/disagrees; D5–D6 not rendered |
-| RW Aur / R Dra brightness between visits | **Blocked** | Targets not rendered; variable check after render |
-| Random RA/Dec job → progress → plays | **Pass (API)** | `test_frames_api.py::test_finished_job_serves_its_folder`; live SIA job succeeded at RA 150.1°, +2.2° (14 Nov) |
-| Empty position → honest no-data message | **Pass** | API 404 `NoImages`; UI `frames.js` status `none`; `test_frames_api::test_job_with_no_images` |
-| `check_frames.py` passes | **Pass** | Section 6 table |
-| Every frame `pixel_source = aws-s3` | **Pass** | All 10 folders |
+| Barnard's Star walks ~1.7 px; Gaia marker tracks | **Pass (D2)** | 1.61 vs 1.67 px; D1–D5 agree; D6 not measurable |
+| WISE 0855 faint D1–D3, visible D5–D6 | **Frames ready** | All 6 detectors on disk; visual confirm in browser (D5–D6) |
+| Epsilon Indi B shift vs Gaia | **Pass (D2–D4)** | D1 disagrees (faint); D5–D6 need Gaia refill |
+| RW Aur / R Dra brightness between visits | **Frames ready** | Match `wl_target_um` in browser before calling variability |
+| Random RA/Dec job | **Pass (API)** | pytest + earlier SIA job at 150.1°, +2.2° |
+| Empty position → no-data | **Pass** | API 404 + UI `none` |
+| `check_frames.py` | **Pass** | **30/30** |
+| Every frame `pixel_source = aws-s3` | **Pass** | All 30 |
 
-### Phase 1 completion gap (honest)
+### Still soft (honest)
 
-- **20 of 30** folders missing: wise0855 (6), rw_aur (6), r_dra (6), eps_ind_b D5–D6 — renders need stable IRSA (TAP for Gaia/CatWISE; SIA works for image search).
-- `frontend/js/targets.js` ratings updated for all **rendered** folders from proof.json; other targets marked not rendered.
-- `backend/app/frame_notes.py` re-measured for barnard and eps_ind_b on disk.
-- README.md added; git tag **`phase1`** marks code/docs sign-off at 10/30 frames (not full 30-folder media freeze).
-
-### Sign-off checklist (manual, when IRSA returns)
-
-- [ ] Re-run `python -m backend.app.render <target> <det>` for missing 20 folders + `write_index`.
-- [ ] `check_frames.py` → 30/30 PASS.
-- [ ] Re-score WISE 0855, RW Aur, R Dra in browser; tick rows above.
-- [ ] Push tag `phase1` to GitHub if not already pushed.
+- [ ] Browser pass of WISE D5–D6 and RW Aur / R Dra variables (human eyes).
+- [ ] Re-run Gaia/CatWISE sidecars when TAP or ESA answers; refresh proofs for the 20 empty-overlay folders.
+- [ ] Merge `phase1-complete` → `main` and move tag if desired.
