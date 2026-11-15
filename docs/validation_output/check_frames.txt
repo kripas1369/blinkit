@@ -1,0 +1,16 @@
+Auditing 10 rendered target/detector folders under frontend/frames:
+
+Target       Det  Visits   Images   Pixel Source   Release      Align Offset (px)    Pct Flagged    Status    
+----------------------------------------------------------------------------------------------------------
+barnard      D1   3        24       aws-s3         DR1+QR3      0.31-0.33            2.5%-3.9%      PASS      
+barnard      D2   3        24       aws-s3         DR1+QR3      0.31-0.36            2.6%-3.6%      PASS      
+barnard      D3   3        24       aws-s3         DR1+QR3      0.33-0.40            2.7%-4.0%      PASS      
+barnard      D4   3        24       aws-s3         DR1+QR3      0.37-0.41            5.7%-5.9%      PASS      
+barnard      D5   3        24       aws-s3         DR1+QR3      0.39-0.42            0.8%-1.2%      PASS      
+barnard      D6   3        24       aws-s3         DR1+QR3      0.37-0.43            0.0%-0.8%      PASS      
+eps_ind_b    D1   3        19       aws-s3         DR1          0.20-0.29            0.0%-0.1%      PASS      
+eps_ind_b    D2   5        39       aws-s3         DR1+QR3      0.15-0.17            0.0%-0.0%      PASS      
+eps_ind_b    D3   4        32       aws-s3         DR1+QR3      0.14-0.17            0.0%-0.0%      PASS      
+eps_ind_b    D4   3        19       aws-s3         DR1          0.18-0.21            0.0%-0.1%      PASS      
+----------------------------------------------------------------------------------------------------------
+ALL CHECKS PASSED: 10 folders verified compliant with FRAMES_FORMAT.md (all pixel_source = aws-s3).
