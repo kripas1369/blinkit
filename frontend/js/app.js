@@ -17,33 +17,32 @@ const ALADIN_SCRIPTS = [
   "https://esm.sh/aladin-lite@3.8.2",
 ];
 
-// Built-in HiPS ids (hips) are preferred: Aladin resolves them. Direct ESA/CDS URLs are fallbacks.
+// Direct ESA CDN HiPS URLs (skies.esac.esa.int without cdn. often times out → blank map).
 const SURVEYS = [
   {
     id: "2mass",
     name: "2MASS near-infrared (J, H, K)",
     hips: "P/2MASS/color",
-    url: "https://skies.esac.esa.int/2MASSColor",
+    url: "https://cdn.skies.esac.esa.int/2MASSColor",
   },
   {
     id: "allwise",
     name: "AllWISE mid-infrared (W1, W2, W4)",
     hips: "P/allWISE/color",
-    url: "https://skies.esac.esa.int/AllWISEColor",
+    url: "https://cdn.skies.esac.esa.int/AllWISEColor",
   },
   {
     id: "dss2",
     name: "DSS2 visible light",
     hips: "P/DSS2/color",
-    url: "https://skies.esac.esa.int/DSSColor",
+    url: "https://cdn.skies.esac.esa.int/DSSColor",
   },
 ];
-// The background surveys look very dark in the small map; lift them a little.
-const MAP_LOOK = { brightness: 0.1 };
+const MAP_LOOK = { imgFormat: "jpeg" };
 
 function surveyLayer(survey) {
-  // Prefer the HiPS id so Aladin can pick a mirror that answers from the visitor's network.
-  return survey.hips || survey.url;
+  // Prefer the working CDN URL; HiPS ids often resolve to dead mirrors.
+  return survey.url || survey.hips;
 }
 
 const COORD_PLACEHOLDERS = { deg: ["RA 269.452", "Dec +4.693"], hms: ["RA 17h57m48.5s", "Dec +04d41m36s"] };
@@ -648,10 +647,10 @@ function setInspector(open) {
     localStorage.setItem(INSPECTOR_KEY, open ? "0" : "1");
   }
   syncInspector();
-  // Aladin’s WebGL canvas only sizes correctly when the sheet is visible.
+  // Aladin only sizes/fetches tiles when the sheet is visible.
   if (open && aladin) {
     requestAnimationFrame(() => {
-      try { aladin.resize?.(); } catch { /* older builds */ }
+      refreshSkyTiles();
       window.dispatchEvent(new Event("resize"));
     });
   }
@@ -785,7 +784,7 @@ async function startMap() {
   if (!phoneLayout.matches) setInspector(true);
   try {
     aladin = A.aladin("#aladin", {
-      survey: surveyLayer(SURVEYS[0]),
+      survey: SURVEYS[0].url,
       target: `${first.ra} ${first.dec}`,
       fov: state.ra !== null ? viewFovDegrees() : 0.5,
       cooFrame: "ICRS",
@@ -801,11 +800,7 @@ async function startMap() {
       showCooGrid: false,
       showFrame: true,
     });
-    try {
-      aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(SURVEYS[0]), { name: SURVEYS[0].name, ...MAP_LOOK }));
-    } catch {
-      aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
-    }
+    applySurvey(SURVEYS[0]);
     mapMessage?.remove();
   } catch (err) {
     if (mapMessage) mapMessage.textContent = `Aladin Lite failed to start: ${err}`;
@@ -836,13 +831,34 @@ async function startMap() {
   drawFovBox();
 }
 
+function applySurvey(survey) {
+  if (!aladin || !A || !survey) return;
+  try {
+    aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
+  } catch {
+    try {
+      aladin.setBaseImageLayer(A.imageHiPS(survey.hips, { name: survey.name, ...MAP_LOOK }));
+    } catch (err) {
+      setStatus(`Sky survey failed to load: ${err}`, "warn");
+    }
+  }
+}
+
 function changeSurvey() {
   const survey = SURVEYS.find((s) => s.id === surveySelect.value);
-  if (!survey || !aladin) return;
-  try {
-    aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(survey), { name: survey.name, ...MAP_LOOK }));
-  } catch {
-    aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
+  if (!survey) return;
+  applySurvey(survey);
+}
+
+function refreshSkyTiles() {
+  if (!aladin) return;
+  try { aladin.resize?.(); } catch { /* older builds */ }
+  const survey = SURVEYS.find((s) => s.id === surveySelect?.value) || SURVEYS[0];
+  applySurvey(survey);
+  if (state.ra !== null) {
+    aladin.gotoRaDec(state.ra, state.dec);
+    aladin.setFoV(viewFovDegrees());
+    drawFovBox();
   }
 }
 
