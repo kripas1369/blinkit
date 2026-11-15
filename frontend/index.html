@@ -33,7 +33,9 @@
     </form>
 
     <nav class="toolbar-actions" aria-label="Page actions">
-      <button type="button" id="share-btn" class="tool-btn" title="Copy a link to this view" disabled>Share</button>
+      <button type="button" id="share-btn" class="tool-btn"
+              title="Copy a shareable link with RA/Dec (paste into other sites or use as iframe src)"
+              aria-label="Copy shareable link with coordinates" disabled>Share</button>
       <button type="button" id="inspector-toggle" class="tool-btn" aria-controls="inspector" aria-expanded="true"
               title="Show or hide the sky map and settings">Sky map</button>
       <button type="button" id="help-toggle" class="help-btn" aria-expanded="false"
@@ -46,11 +48,13 @@
     <div class="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="onboard-title">
       <button type="button" class="guide-close" id="onboard-close" aria-label="Close">×</button>
       <h2 id="onboard-title" class="onboard-title">How to use Blink</h2>
-      <p class="guide-lead">Three steps to compare the same patch of sky across SPHEREx visits.</p>
+      <p class="guide-lead">Compare the same patch of sky across SPHEREx visits, then share the view by URL.</p>
       <ol class="onboard-steps">
         <li>Pick one of the <strong>official targets</strong>, or <strong>search</strong> a star or coordinates at the top.</li>
         <li>Set <strong>field of view</strong> and <strong>detector</strong> in the <strong>Sky map</strong> panel (the white square on the map).</li>
         <li>When frames are ready, <strong>flip through visits</strong>. What moves or fades is worth a closer look, but it is not a discovery.</li>
+        <li>Use <strong>Share</strong> to copy a link with <code>ra</code>/<code>dec</code> (and FOV/detector) so others — or another website — can open the same view.</li>
+        <li>Scroll to <strong>Six Eyes</strong> for deep stacks of all six detectors side by side, plus a coarse spectrum.</li>
       </ol>
       <div class="onboard-actions">
         <button type="button" id="onboard-try" class="btn btn-primary">Try Barnard's Star</button>
@@ -234,6 +238,55 @@
           </div>
         </div>
       </section>
+
+      <section id="six-eyes-view" class="panel six-eyes" aria-labelledby="six-eyes-title" hidden>
+        <div class="flip-head">
+          <h2 id="six-eyes-title">Six Eyes</h2>
+          <span id="six-eyes-summary" class="flip-summary"></span>
+        </div>
+        <p class="six-eyes-lead">
+          Same sky, six detectors — each image is a deep stack of all visits for that array.
+          Tap an eye for a large card view; use arrows to step D1→D6.
+        </p>
+        <p id="six-eyes-message" class="help" hidden></p>
+        <div id="six-eyes-detail" hidden>
+          <div id="six-eyes-row" class="six-eyes-row" role="list" aria-label="Detectors D1 through D6"></div>
+          <div class="six-eyes-spec">
+            <div class="six-eyes-spec-head">
+              <h3 class="six-eyes-spec-title">Coarse spectrum</h3>
+              <p id="six-eyes-hover" class="six-eyes-hover" aria-live="polite"></p>
+            </div>
+            <p class="six-eyes-spec-explain">
+              <strong>What this shows:</strong> brightness near the target in each detector’s deep stack,
+              plotted against that detector’s wavelength (short → long: D1…D6).
+              A rising or falling shape means the source is brighter in some infrared bands than others —
+              a quick colour fingerprint, not a full 102-channel science spectrum.
+            </p>
+            <canvas id="six-eyes-spectrum" width="840" height="260" aria-label="Six-point spectrum across detectors"></canvas>
+            <p class="help">Each point averages light inside one detector’s band (many LVF channels mixed). Good for comparing D1–D6 at a glance; use Lab 2 / IRSA for finer spectra. Fast movers can smear in the deep stacks.</p>
+            <ul id="six-eyes-limits" class="six-eyes-limits"></ul>
+          </div>
+        </div>
+      </section>
+
+      <div id="six-eyes-lightbox" class="six-eyes-lightbox" hidden>
+        <button type="button" class="six-eyes-lb-backdrop" id="six-eyes-lb-backdrop" aria-label="Close large view" tabindex="-1"></button>
+        <div class="six-eyes-lb-card" role="dialog" aria-modal="true" aria-labelledby="six-eyes-lb-title">
+          <button type="button" class="six-eyes-lb-close" id="six-eyes-lb-close" aria-label="Close">×</button>
+          <button type="button" class="six-eyes-lb-nav six-eyes-lb-prev" id="six-eyes-lb-prev" aria-label="Previous detector">‹</button>
+          <button type="button" class="six-eyes-lb-nav six-eyes-lb-next" id="six-eyes-lb-next" aria-label="Next detector">›</button>
+          <header class="six-eyes-lb-head">
+            <p class="six-eyes-lb-kicker" id="six-eyes-lb-kicker">Six Eyes</p>
+            <h3 id="six-eyes-lb-title">D1</h3>
+            <p id="six-eyes-lb-band" class="six-eyes-lb-band"></p>
+          </header>
+          <div class="six-eyes-lb-stage">
+            <img id="six-eyes-lb-img" alt="" width="512" height="512">
+          </div>
+          <dl class="six-eyes-lb-meta" id="six-eyes-lb-meta"></dl>
+          <p class="six-eyes-lb-hint">← → or buttons to change detector · Esc to close</p>
+        </div>
+      </div>
     </div>
 
     <aside id="inspector" class="panel inspector sky-panel" aria-labelledby="map-title">
@@ -645,7 +698,7 @@
 
   <footer class="site-footer">
     <p>Data: SPHEREx images from NASA/IPAC Infrared Science Archive (IRSA). Star positions and motions: ESA Gaia DR3 (via IRSA). Background maps: 2MASS, AllWISE and DSS2 (CDS HiPS, served by ESA ESASky). Names: CDS SIMBAD (Harvard mirror). Map: Aladin Lite (CDS).
-      Team Not42 · NASA Space Apps 2026.</p>
+      Views are shareable via <code>?ra=&amp;dec=</code> in the URL (Share button). Team Not42 · NASA Space Apps 2026.</p>
   </footer>
 
   <script type="module" src="js/app.js"></script>

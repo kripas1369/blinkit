@@ -1104,6 +1104,239 @@ input[type="range"] { width: 100%; accent-color: var(--text); min-height: 32px; 
   .help-btn { padding: 0.25rem 0.55rem; }
 }
 
+/* Six Eyes — wavelength discovery (deep per detector) */
+.six-eyes { margin-top: 1.25rem; }
+.six-eyes-lead {
+  margin: 0 0 1rem;
+  max-width: 40rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.six-eyes-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.65rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.15rem 0.1rem 0.85rem;
+  margin: 0 -0.1rem 0.35rem;
+}
+.six-eye {
+  flex: 1 1 0;
+  min-width: min(148px, 28vw);
+  max-width: 200px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  display: grid;
+  gap: 0.45rem;
+  transition: transform 0.22s var(--ease);
+}
+.six-eye:hover:not([disabled]) { transform: translateY(-2px); }
+.six-eye:focus-visible { outline: none; }
+.six-eye-frame {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #0a0a0a;
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow 0.22s var(--ease), border-color 0.22s var(--ease);
+}
+.six-eye.is-active .six-eye-frame,
+.six-eye[aria-pressed="true"] .six-eye-frame {
+  border-color: #f5f5f7;
+  box-shadow: 0 0 0 2px #f5f5f7, 0 8px 28px #00000080;
+}
+.six-eye-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+  background: #000;
+}
+.six-eye-miss {
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.six-eye-cap {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0 0.1rem;
+}
+.six-eye-cap strong {
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.six-eye-cap span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+.six-eye-meta { color: var(--faint) !important; }
+.six-eye[disabled] { opacity: 0.45; cursor: default; }
+
+.six-eyes-spec {
+  margin-top: 0.35rem;
+  padding: 1rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.six-eyes-spec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.65rem;
+}
+.six-eyes-spec-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.six-eyes-hover {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+#six-eyes-spectrum {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  background: #0a0a0a;
+}
+.six-eyes-limits {
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--faint);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.six-eyes-spec-explain {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.six-eyes-spec-explain strong { color: var(--text); font-weight: 600; }
+
+/* Six Eyes large-view card */
+.six-eyes-lightbox {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.six-eyes-lightbox[hidden] { display: none !important; }
+.six-eyes-lb-backdrop {
+  position: absolute; inset: 0; border: 0; padding: 0; margin: 0;
+  background: #000000cc;
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  cursor: pointer;
+}
+.six-eyes-lb-card {
+  position: relative; z-index: 1;
+  width: min(100%, 560px);
+  max-height: min(92vh, 820px);
+  overflow: auto;
+  padding: 1.25rem 1.25rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  box-shadow: 0 28px 90px #000000c0;
+  animation: guide-in 0.28s var(--ease);
+}
+.six-eyes-lb-close {
+  position: absolute; top: 0.7rem; right: 0.7rem;
+  width: 2rem; height: 2rem; border: 0; border-radius: 50%;
+  font-size: 1.35rem; line-height: 1; color: var(--muted);
+  background: var(--panel-2); cursor: pointer; z-index: 2;
+}
+.six-eyes-lb-close:hover { color: var(--text); background: var(--panel-3); }
+.six-eyes-lb-nav {
+  position: absolute; top: 52%; transform: translateY(-50%);
+  width: 2.5rem; height: 2.5rem; border: 0; border-radius: 50%;
+  font-size: 1.6rem; line-height: 1; color: var(--text);
+  background: #ffffff18; cursor: pointer; z-index: 2;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+.six-eyes-lb-nav:hover:not([disabled]) { background: #ffffff28; }
+.six-eyes-lb-nav[disabled] { opacity: 0.25; cursor: default; }
+.six-eyes-lb-prev { left: 0.55rem; }
+.six-eyes-lb-next { right: 0.55rem; }
+.six-eyes-lb-head { margin: 0 2.2rem 0.75rem 0; }
+.six-eyes-lb-kicker {
+  margin: 0 0 0.2rem; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint);
+}
+.six-eyes-lb-head h3 {
+  margin: 0; font-size: 1.55rem; font-weight: 700; letter-spacing: -0.03em;
+}
+.six-eyes-lb-band { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+.six-eyes-lb-stage {
+  margin: 0 auto 0.9rem;
+  max-width: 420px;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--line);
+}
+.six-eyes-lb-stage img {
+  width: 100%; height: 100%; object-fit: contain;
+  image-rendering: pixelated; display: block;
+}
+.six-eyes-lb-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+.six-eyes-lb-meta div {
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+}
+.six-eyes-lb-meta dt {
+  margin: 0; font-size: 0.68rem; color: var(--faint);
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.six-eyes-lb-meta dd {
+  margin: 0.15rem 0 0; font-size: 0.88rem; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.six-eyes-lb-hint {
+  margin: 0; text-align: center; color: var(--faint); font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .six-eye { min-width: 132px; max-width: none; flex: 0 0 auto; }
+  .six-eyes-lb-card { width: min(100%, 420px); padding: 1rem; }
+  .six-eyes-lb-meta { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto; transition: none !important; }
 }

@@ -34,6 +34,7 @@ cache/
 scratch
 scratch/
 frontend/frames/
+frontend/lab/data/
 *.zip
 
 # Logs

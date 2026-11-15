@@ -10,6 +10,35 @@ Team **Not42** (Kripas Khatiwada & Govinda). Phase 1 tag: `phase1`.
 - **Prepared frames** under `frontend/frames/` for five challenge targets (when rendered).
 - For any **RA/Dec**, the API can build frames in the background (`HTTP 202` then poll).
 - Modes: **Images** (flip/blink), **Minus median**, **Add visits** (stack), **Difference**.
+- **Shareable / embeddable URLs** — the address bar carries `ra`, `dec`, `fov`, `det`, and view options. **Share** copies the link for other sites and projects.
+- **Six Eyes** — deep stack per detector (D1–D6) with coarse spectrum for official targets (`scripts/six_eyes_lab.py` builds `frontend/frames/<target>/six_eyes/`).
+
+## Shareable URLs (coordinates in the link)
+
+Open a sky position directly (example: Barnard's Star, 11′ FOV, detector 2):
+
+```
+http://127.0.0.1:8000/?ra=269.446269&dec=4.768205&fov=11&det=2
+```
+
+| Param | Meaning |
+|-------|---------|
+| `ra`, `dec` | degrees (required for a deep link) |
+| `fov` | field of view in arcmin (1–30) |
+| `det` | SPHEREx detector 1–6 |
+| `mode` | optional: `flip`, `blink`, `diff`, `stack`, `minus` |
+| `gaia`, `wise` | optional overlays `0`/`1` |
+
+Embed in another page:
+
+```html
+<iframe
+  src="https://YOUR_HOST/?ra=269.446269&dec=4.768205&fov=11&det=2"
+  title="Blinkit SPHEREx view"
+  width="100%" height="640" loading="lazy"></iframe>
+```
+
+The UI keeps the URL in sync as you change target/FOV/detector; **Share** copies the current link.
 
 ## Run locally
 

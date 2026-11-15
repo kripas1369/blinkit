@@ -2,6 +2,7 @@ import { matchCatalog } from "./catalog.js";
 import { formatDec, formatRa, looksLikeName, parseCoordinates, parseField, splitPastedPair } from "./coords.js";
 import { createDiffView } from "./diffview.js";
 import { createFlipbook } from "./flipbook.js";
+import { createSixEyes } from "./sixeyes.js";
 import { positionAt, separationArcsec, VIEW_EPOCH } from "./motion.js";
 import { createProof } from "./proof.js";
 import { NameNotFound, resolveName } from "./resolve.js";
@@ -73,6 +74,7 @@ let positionVersion = 0;
 let coordUnit = "deg";
 let coordTimer = null;
 let flipbook = null;
+let sixEyes = null;
 let timeline = null;
 let diffView = null;
 let proofView = null;
@@ -366,6 +368,7 @@ function applyPosition({ ra, dec, source, note = "", targetKey = null, queryText
   renderSelection();
   moveMap();
   refreshFlipbook();
+  sixEyes?.show(state.targetKey);
 }
 
 function chooseTarget(target) {
@@ -571,9 +574,10 @@ async function copyLink() {
   try {
     await navigator.clipboard.writeText(location.href);
     shareButton.textContent = "Copied";
+    setStatus("Shareable link copied (RA/Dec in the URL — paste anywhere or use as an iframe src).", "ok");
     setTimeout(() => { shareButton.textContent = "Share"; }, 1500);
   } catch {
-    setStatus(`Copy this link: ${location.href}`, "info");
+    setStatus(`Copy this embeddable link: ${location.href}`, "info");
   }
 }
 
@@ -806,6 +810,7 @@ async function start() {
       writeUrl();
     },
   });
+  sixEyes = createSixEyes();
   if (fromUrl.ra !== null) {
     const target = officialTargetAt(fromUrl.ra, fromUrl.dec);
     applyPosition({
