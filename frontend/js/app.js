@@ -404,7 +404,13 @@ function drawFovBox() {
 }
 
 function moveMap() {
-  if (!aladin || state.ra === null) return;
+  if (state.ra === null) return;
+  if (mapMode === "esasky") {
+    const frame = $("esasky-frame");
+    if (frame) frame.src = esaskySrc(state.ra, state.dec);
+    return;
+  }
+  if (!aladin) return;
   aladin.gotoRaDec(state.ra, state.dec);
   aladin.setFoV(viewFovDegrees());
   drawFovBox();
