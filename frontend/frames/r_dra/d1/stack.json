@@ -1,0 +1,20 @@
+{
+  "format": "spherex-blink-stack/1",
+  "target": "r_dra",
+  "band": 1,
+  "visits": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "n_visits": 5,
+  "n_images": 40,
+  "noise_per_pixel": 0.008,
+  "single_visit_noise": 0.018,
+  "noise_ratio_vs_single_visit": 2.24,
+  "unit": "MJy/sr",
+  "fits": "stack.fits",
+  "png": "stack.png"
+}

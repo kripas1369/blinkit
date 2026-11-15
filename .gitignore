@@ -33,11 +33,11 @@ cache
 cache/
 scratch
 scratch/
-frontend/frames/
+# frontend/frames/ is committed so VPS can git clone and serve official targets offline
 frontend/lab/data/
 *.zip
 
-# VPS pack output (includes frames; rebuild with scripts/pack_vps.sh)
+# VPS pack output (rebuild with scripts/pack_vps.sh)
 dist/
 
 # Logs

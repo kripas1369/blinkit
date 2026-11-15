@@ -1,0 +1,19 @@
+{
+  "format": "spherex-blink-stack/1",
+  "target": "wise0855",
+  "band": 2,
+  "visits": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "n_visits": 4,
+  "n_images": 30,
+  "noise_per_pixel": 0.0032,
+  "single_visit_noise": 0.0064,
+  "noise_ratio_vs_single_visit": 1.98,
+  "unit": "MJy/sr",
+  "fits": "stack.fits",
+  "png": "stack.png"
+}

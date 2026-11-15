@@ -1,0 +1,50 @@
+{
+ "format": "spherex-blink-proof/1",
+ "target": "r_dra",
+ "band": 2,
+ "pixel_arcsec": 6.15,
+ "motion": {
+  "status": "no_gaia_target",
+  "reason": "Gaia DR3 lists no star within 3″ of the centre, so there is no expected motion to compare with."
+ },
+ "data": {
+  "n_visits": 3,
+  "span_days": 366.8,
+  "n_exposures_used": 24,
+  "n_exposures_taken": 89,
+  "pct_flagged_range": [
+   3.6,
+   5.8
+  ],
+  "visits": [
+   {
+    "date": "2025-06-19 23:36 UTC",
+    "n_images": 8,
+    "n_images_in_epoch": 33,
+    "pct_flagged": 5.8,
+    "pct_no_value": 1.9
+   },
+   {
+    "date": "2025-12-01 21:36 UTC",
+    "n_images": 8,
+    "n_images_in_epoch": 37,
+    "pct_flagged": 4.3,
+    "pct_no_value": 1.3
+   },
+   {
+    "date": "2026-06-21 18:57 UTC",
+    "n_images": 8,
+    "n_images_in_epoch": 19,
+    "pct_flagged": 3.6,
+    "pct_no_value": 1.1
+   }
+  ],
+  "frames_made_at": "2026-11-15 05:32 UTC",
+  "newest_exposure": "2026-06-21",
+  "releases": null,
+  "releases_reason": "no exposures.fits, so the exposures used are not listed"
+ },
+ "method": "motion: first to last visit, PNG pixels (+x west, +y south); centroid of the 5 × 5 pixels around Gaia's position, or the centre of the saturated core when the box is not fully usable; rough, because SPHEREx's PSF is about one 6.15″ pixel wide (pixel phase)",
+ "made_by": "backend/app/proof.py",
+ "made_at": "2026-11-15 05:32 UTC"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "spherex-blink-stack/1",
+  "target": "eps_ind_b",
+  "band": 6,
+  "visits": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "n_visits": 4,
+  "n_images": 32,
+  "noise_per_pixel": 0.0094,
+  "single_visit_noise": 0.0188,
+  "noise_ratio_vs_single_visit": 2.0,
+  "unit": "MJy/sr",
+  "fits": "stack.fits",
+  "png": "stack.png"
+}

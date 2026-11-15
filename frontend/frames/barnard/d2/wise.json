@@ -1,0 +1,38 @@
+{
+ "format": "spherex-blink-wise/1",
+ "catalogue": "CatWISE2020 (catwise_2020 at NASA/IPAC IRSA)",
+ "catalogue_epoch": 2015.4018,
+ "catalogue_mjd": 57170.0,
+ "query": {
+  "ra": 269.4462685026598,
+  "dec": 4.768204478798888,
+  "radius_deg": 0.071394,
+  "n_returned": 0,
+  "unavailable": "IRSA TAP is down (not retried for a few minutes): 502 Server Error: Proxy Error for url: https://irsa.ipac.caltech.edu/TAP/sync"
+ },
+ "method": "each CatWISE2020 position (epoch 2015.4018) moved in a straight line with its proper motion (pmra/pmdec in arcsec/yr converted to mas/yr) to the frame's MJD; sources without proper motion stay at their 2015.4018 position",
+ "pixel_convention": "PNG pixels: x to the right (west), y down (south), 0 = centre of the first pixel",
+ "target_match_rule": "the CatWISE source nearest the grid centre at 2026.0, if within 3.0″",
+ "target_match": null,
+ "frames": [
+  {
+   "epoch_id": 0,
+   "mjd": 60913.49811,
+   "year": 2025.6509
+  },
+  {
+   "epoch_id": 1,
+   "mjd": 61115.44389,
+   "year": 2026.2038
+  },
+  {
+   "epoch_id": 2,
+   "mjd": 61273.71296,
+   "year": 2026.6371
+  }
+ ],
+ "sources": [],
+ "made_by": "backend/app/wise.py",
+ "made_at": "2026-11-15 05:52 UTC",
+ "data_credit": "CatWISE2020 (Eisenhardt et al. 2020, Marocco et al. 2021), via NASA/IPAC IRSA"
+}

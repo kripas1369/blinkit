@@ -1,0 +1,253 @@
+{
+  "format": "blinkit-six-eyes-lab/1",
+  "target": "eps_ind_b",
+  "made_at": "2026-11-15 08:25 UTC",
+  "method": "Per detector: inverse-variance stack of north-up visit epoch*.fits (backend.app.stack.write_stack); photometry = mean in r=1.5 px around the brightest usable pixel within 5 px of cutout centre (peak-anchored; handles saturated cores and mild mover smear).",
+  "limitations": [
+    "Each deep_Di mixes the ~17 LVF channels of that detector \u2014 not a single spectral channel.",
+    "Peak-anchored aperture can follow a smear lobe for fast movers; flipbook owns motion.",
+    "Lab spectrum is visualization only; IRSA Spectrophotometry Tool is for science spectra.",
+    "Not the DR1 All-Sky Cube (102 planes); that is lab Option B (see RESEARCH_HOLD.md)."
+  ],
+  "references": [
+    "docs/RESEARCH_HOLD.md",
+    "frontend/lab/METHODOLOGY.md",
+    "IRSA SPHEREx data products / All-Sky Cube docs"
+  ],
+  "ra": 331.09664385226796,
+  "dec": -56.80066020400499,
+  "fov_arcmin": 3.0,
+  "eyes": [
+    {
+      "band": 1,
+      "status": "ok",
+      "label": "D1",
+      "band_range_um": [
+        0.75,
+        1.09
+      ],
+      "wl_center_um": 0.92,
+      "png": "deep_D1.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D1.png",
+      "source_stack": "frontend/frames/eps_ind_b/d1/stack.png",
+      "n_visits": 3,
+      "n_images": 19,
+      "noise_per_pixel": 0.0053,
+      "single_visit_noise": 0.0079,
+      "noise_ratio_vs_single_visit": 1.48,
+      "photometry": {
+        "flux_mjy_sr": 0.509822,
+        "sigma_mjy_sr": 0.006648,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    },
+    {
+      "band": 2,
+      "status": "ok",
+      "label": "D2",
+      "band_range_um": [
+        1.1,
+        1.62
+      ],
+      "wl_center_um": 1.36,
+      "png": "deep_D2.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D2.png",
+      "source_stack": "frontend/frames/eps_ind_b/d2/stack.png",
+      "n_visits": 5,
+      "n_images": 39,
+      "noise_per_pixel": 0.003,
+      "single_visit_noise": 0.0065,
+      "noise_ratio_vs_single_visit": 2.18,
+      "photometry": {
+        "flux_mjy_sr": 1.710653,
+        "sigma_mjy_sr": 0.006483,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    },
+    {
+      "band": 3,
+      "status": "ok",
+      "label": "D3",
+      "band_range_um": [
+        1.63,
+        2.41
+      ],
+      "wl_center_um": 2.02,
+      "png": "deep_D3.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D3.png",
+      "source_stack": "frontend/frames/eps_ind_b/d3/stack.png",
+      "n_visits": 4,
+      "n_images": 32,
+      "noise_per_pixel": 0.0029,
+      "single_visit_noise": 0.0058,
+      "noise_ratio_vs_single_visit": 2.02,
+      "photometry": {
+        "flux_mjy_sr": 1.536101,
+        "sigma_mjy_sr": 0.007026,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    },
+    {
+      "band": 4,
+      "status": "ok",
+      "label": "D4",
+      "band_range_um": [
+        2.42,
+        3.82
+      ],
+      "wl_center_um": 3.12,
+      "png": "deep_D4.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D4.png",
+      "source_stack": "frontend/frames/eps_ind_b/d4/stack.png",
+      "n_visits": 3,
+      "n_images": 19,
+      "noise_per_pixel": 0.0029,
+      "single_visit_noise": 0.0047,
+      "noise_ratio_vs_single_visit": 1.63,
+      "photometry": {
+        "flux_mjy_sr": 1.447625,
+        "sigma_mjy_sr": 0.008909,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    },
+    {
+      "band": 5,
+      "status": "ok",
+      "label": "D5",
+      "band_range_um": [
+        3.83,
+        4.41
+      ],
+      "wl_center_um": 4.12,
+      "png": "deep_D5.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D5.png",
+      "source_stack": "frontend/frames/eps_ind_b/d5/stack.png",
+      "n_visits": 5,
+      "n_images": 38,
+      "noise_per_pixel": 0.0052,
+      "single_visit_noise": 0.011,
+      "noise_ratio_vs_single_visit": 2.1,
+      "photometry": {
+        "flux_mjy_sr": 3.948059,
+        "sigma_mjy_sr": 0.018583,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    },
+    {
+      "band": 6,
+      "status": "ok",
+      "label": "D6",
+      "band_range_um": [
+        4.42,
+        5.0
+      ],
+      "wl_center_um": 4.71,
+      "png": "deep_D6.png",
+      "png_url": "/frames/eps_ind_b/six_eyes/deep_D6.png",
+      "source_stack": "frontend/frames/eps_ind_b/d6/stack.png",
+      "n_visits": 4,
+      "n_images": 32,
+      "noise_per_pixel": 0.0094,
+      "single_visit_noise": 0.0188,
+      "noise_ratio_vs_single_visit": 2.0,
+      "photometry": {
+        "flux_mjy_sr": 2.054031,
+        "sigma_mjy_sr": 0.018681,
+        "n_pixels": 9,
+        "aperture_radius_px": 1.5,
+        "search_radius_px": 5.0,
+        "peak_y": 14,
+        "peak_x": 14,
+        "anchor": "cutout_centre"
+      },
+      "caveat": "Band-averaged inverse-variance coadd of visit epochs; mixes LVF channels within this detector (see METHODOLOGY.md)."
+    }
+  ],
+  "spectrum": [
+    {
+      "band": 1,
+      "wl_um": 0.92,
+      "wl_lo_um": 0.75,
+      "wl_hi_um": 1.09,
+      "flux_mjy_sr": 0.509822,
+      "sigma_mjy_sr": 0.006648,
+      "n_pixels": 9
+    },
+    {
+      "band": 2,
+      "wl_um": 1.36,
+      "wl_lo_um": 1.1,
+      "wl_hi_um": 1.62,
+      "flux_mjy_sr": 1.710653,
+      "sigma_mjy_sr": 0.006483,
+      "n_pixels": 9
+    },
+    {
+      "band": 3,
+      "wl_um": 2.02,
+      "wl_lo_um": 1.63,
+      "wl_hi_um": 2.41,
+      "flux_mjy_sr": 1.536101,
+      "sigma_mjy_sr": 0.007026,
+      "n_pixels": 9
+    },
+    {
+      "band": 4,
+      "wl_um": 3.12,
+      "wl_lo_um": 2.42,
+      "wl_hi_um": 3.82,
+      "flux_mjy_sr": 1.447625,
+      "sigma_mjy_sr": 0.008909,
+      "n_pixels": 9
+    },
+    {
+      "band": 5,
+      "wl_um": 4.12,
+      "wl_lo_um": 3.83,
+      "wl_hi_um": 4.41,
+      "flux_mjy_sr": 3.948059,
+      "sigma_mjy_sr": 0.018583,
+      "n_pixels": 9
+    },
+    {
+      "band": 6,
+      "wl_um": 4.71,
+      "wl_lo_um": 4.42,
+      "wl_hi_um": 5.0,
+      "flux_mjy_sr": 2.054031,
+      "sigma_mjy_sr": 0.018681,
+      "n_pixels": 9
+    }
+  ],
+  "label": "Epsilon Indi B"
+}

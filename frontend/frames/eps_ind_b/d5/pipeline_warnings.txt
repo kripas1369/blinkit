@@ -1,0 +1,1 @@
+Gaia DR3 markers failed: IRSA TAP is down (not retried for a few minutes): sidecar pass prefers ESA Gaia; ESA Gaia also failed: [Errno 60] Operation timed out

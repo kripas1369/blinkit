@@ -1,0 +1,16 @@
+{
+  "format": "spherex-blink-stack/1",
+  "target": "barnard",
+  "band": 2,
+  "visits": [
+    0
+  ],
+  "n_visits": 1,
+  "n_images": 8,
+  "noise_per_pixel": 0.0108,
+  "single_visit_noise": 0.0108,
+  "noise_ratio_vs_single_visit": 1.0,
+  "unit": "MJy/sr",
+  "fits": "stack_0.fits",
+  "png": "stack_0.png"
+}

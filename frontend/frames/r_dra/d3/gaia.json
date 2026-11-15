@@ -1,0 +1,42 @@
+{
+ "format": "spherex-blink-gaia/1",
+ "catalogue": "Gaia DR3 (gaia_dr3_source at NASA/IPAC IRSA; ESA fallback when IRSA is down)",
+ "catalogue_epoch": 2016.0,
+ "query": {
+  "ra": 248.16723307280128,
+  "dec": 66.75502382666444,
+  "radius_deg": 0.068731,
+  "n_returned": 0,
+  "unavailable": "IRSA TAP is down (not retried for a few minutes): fill missing sidecars; ESA Gaia also failed: ESA Gaia skipped: previous timeouts in this session"
+ },
+ "method": "each Gaia DR3 position (epoch 2016.0) moved in a straight line with its proper motion to the frame's MJD; parallax not applied; stars without a Gaia proper motion stay at their 2016.0 position",
+ "pixel_convention": "PNG pixels: x to the right (west), y down (south), 0 = centre of the first pixel",
+ "target_match_rule": "the Gaia star nearest the grid centre at 2026.0, if within 3.0″",
+ "target_match": null,
+ "frames": [
+  {
+   "epoch_id": 0,
+   "mjd": 60806.69512,
+   "year": 2025.3585
+  },
+  {
+   "epoch_id": 1,
+   "mjd": 61083.55805,
+   "year": 2026.1165
+  },
+  {
+   "epoch_id": 2,
+   "mjd": 61122.90322,
+   "year": 2026.2242
+  },
+  {
+   "epoch_id": 3,
+   "mjd": 61173.92408,
+   "year": 2026.3639
+  }
+ ],
+ "stars": [],
+ "made_by": "backend/app/gaia.py",
+ "made_at": "2026-11-15 06:14 UTC",
+ "data_credit": "ESA Gaia DR3, via NASA/IPAC IRSA (ESA archive fallback)"
+}
