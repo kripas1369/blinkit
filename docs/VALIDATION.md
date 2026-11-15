@@ -9,6 +9,12 @@ The full archive holds 1,628,230 images taken between May 2025 and October 2026.
 For Barnard's Star, our cone search finds 363 exposures across all 6 detectors (roughly 60 exposures per band from 0.75 to 5.00 um).
 SIA2 queries give valid public AWS S3 keys for all level-2 images, readable directly over HTTPS without credentials.
 
+**Plan checks (Govinda B1 / Kripas B1 review):**
+- `spherex_qr2` is no longer in `config.COLLECTIONS` (IRSA listing checked 13 Nov 2026); a QR2-only search at the Barnard position returns **0 rows** (expected).
+- `SPHEREX_COLLECTIONS` env override is tested in `test_b1_archive.py`.
+- `archive.releases()` backs `GET /api/releases` (Kripas B1).
+- Post–Phase 1: live search prefers **SIA** then TAP (`archive.find_images`), see `PHASE1_STATUS.md`.
+
 ## 2. Visit Stacking and Cleaning (B2 Part A)
 
 Inverse-variance coadd of Barnard's Star detector 2, from `frontend/frames/barnard/d2/manifest.json` (rendered 14 Nov 2026):

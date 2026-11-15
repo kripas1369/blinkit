@@ -51,8 +51,10 @@ Stack: Python 3.12+, **astropy**, **astroquery**, **pyvo**, **reproject**, **Fas
 
 ## Phase 1 status
 
-- Pipeline B1–B4: code complete on `main`. See [docs/DATA_FLOW.md](docs/DATA_FLOW.md) and [docs/VALIDATION.md](docs/VALIDATION.md).
-- **10 of 30** target/detector frame folders on disk (barnard D1–D6, epsilon Indi B D1–D4) as of 15 Nov 2026; remaining renders blocked when IRSA TAP is down (image search uses SIA when possible).
+- **B1–B4 code:** complete on `main`. **B5 sign-off:** docs, scripts, README, `targets.js`, tag `phase1` (local).
+- **Data:** **10 of 30** frame folders on disk (barnard D1–D6, eps Ind B D1–D4); 20 renders waiting on IRSA TAP for Gaia/CatWISE post-steps.
+- Full block-by-block audit vs the hackathon plan: [docs/PHASE1_STATUS.md](docs/PHASE1_STATUS.md).
+- Measurements and tests: [docs/VALIDATION.md](docs/VALIDATION.md), pipeline: [docs/DATA_FLOW.md](docs/DATA_FLOW.md).
 
 ## AI disclosure
 
