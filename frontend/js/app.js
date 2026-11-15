@@ -648,6 +648,13 @@ function setInspector(open) {
     localStorage.setItem(INSPECTOR_KEY, open ? "0" : "1");
   }
   syncInspector();
+  // Aladin’s WebGL canvas only sizes correctly when the sheet is visible.
+  if (open && aladin) {
+    requestAnimationFrame(() => {
+      try { aladin.resize?.(); } catch { /* older builds */ }
+      window.dispatchEvent(new Event("resize"));
+    });
+  }
 }
 
 function wireInspector() {
@@ -774,8 +781,8 @@ async function startMap() {
     if (mapMessage) mapMessage.textContent = `Aladin Lite failed to start: ${err}`;
     return;
   }
-  // Keep the sky panel visible so Aladin can size its WebGL canvas.
-  setInspector(true);
+  // Desktop: keep the panel open so Aladin can size. Phone: leave the sheet closed.
+  if (!phoneLayout.matches) setInspector(true);
   try {
     aladin = A.aladin("#aladin", {
       survey: surveyLayer(SURVEYS[0]),
@@ -847,6 +854,8 @@ async function start() {
   renderDetectors();
   renderSurveys();
   renderTargets();
+  // Phones: keep official targets collapsed so the flipbook isn’t pushed down.
+  if (phoneLayout.matches) $("targets-dropdown")?.removeAttribute("open");
 
   const fromUrl = readUrlState(location.search);
   for (const key of ["fov", "det", ...Object.keys(VIEW_DEFAULTS)]) state[key] = fromUrl[key];
