@@ -70,7 +70,7 @@ Color composite is built in the browser from visit PNGs (`js/composite.js`). Dif
 
 - IRSA / TAP slow or 502 → SIA fallback, then last cached exposure list; friendly “archive side” copy (not raw URLs).
 - Missing prepared folder → empty state / job message, not a blank crash.
-- Gaia / CatWISE down → overlays empty; flipbook still works.
+- **Gaia / WISE overlays** → CDS VizieR first for Gaia DR3; AllWISE on VizieR if IRSA CatWISE TAP is down. `/api/gaia` and `/api/wise` rebuild empty sidecars on demand.
 - Partial visit set → stack/diff only use visits that exist; warnings in the panel when useful.
 
 ## Hosting note

@@ -1,7 +1,8 @@
 """Render every official target/detector folder that is still missing, then run B4 writers.
 
-Uses SIA-first image search (archive.find_images). Gaia/CatWISE need IRSA TAP; if TAP is
-down those steps are recorded as warnings and can be re-run later with --sidecars-only.
+Uses SIA-first image search (archive.find_images). Gaia prefers CDS VizieR (IRSA/ESA
+backups); WISE uses IRSA CatWISE then AllWISE on VizieR. Re-run with --sidecars-only
+to refill empty overlays.
 
     python -m scripts.render_missing              # render + sidecars for all missing
     python -m scripts.render_missing --list       # print missing only
@@ -117,8 +118,8 @@ def main() -> int:
         from backend.app import archive
         from backend.app.render import write_index
 
-        # Skip waiting on a dead IRSA TAP: Gaia will use ESA; CatWISE writes empty if needed.
-        archive._tap_down.update(until=time.monotonic() + 3600, reason="sidecar pass prefers ESA Gaia")
+        # Clear any stale TAP cooldown so CatWISE can still be tried; Gaia/AllWISE use VizieR.
+        archive._tap_down.update(until=0.0, reason="")
 
         folders = []
         if args.all_existing or only is not None:

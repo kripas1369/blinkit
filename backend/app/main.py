@@ -70,8 +70,8 @@ _ARCHIVE_PUBLIC = (
     "not our server. Try again in a few minutes."
 )
 _OVERLAY_PUBLIC = (
-    "Star-catalogue overlays (Gaia / WISE) are incomplete right now because NASA IRSA did not answer. "
-    "The flipbook still works; try overlays again later."
+    "Star-catalogue overlays (Gaia / WISE) could not be refreshed right now "
+    "(IRSA and the backup catalogues did not answer). The flipbook still works; try overlays again later."
 )
 
 
@@ -306,6 +306,38 @@ def _read(loc: dict, name: str, what: str) -> dict:
     return json.loads(path.read_text())
 
 
+def _sidecar_incomplete(data: dict | None, items_key: str) -> bool:
+    if not data:
+        return True
+    if (data.get("query") or {}).get("unavailable"):
+        return True
+    return not (data.get(items_key) or [])
+
+
+def _refresh_overlay(loc: dict, name: str, items_key: str, writer) -> dict:
+    """Rebuild gaia.json / wise.json when the on-disk copy is empty or marked unavailable."""
+    path = loc["folder"] / name
+    data = json.loads(path.read_text()) if path.exists() else None
+    if not _sidecar_incomplete(data, items_key):
+        return data
+    if not (loc["folder"] / "manifest.json").exists():
+        raise ApiError(404, f"No {name} for this position and detector")
+    try:
+        data = writer(loc["folder"])
+    except Exception as exc:
+        if data is not None:
+            return data
+        raise ApiError(502, f"Catalogue overlay unavailable: {exc}") from exc
+    if not _sidecar_incomplete(data, items_key):
+        # Drop stale IRSA-overlay lines so /api/frames stops alarming visitors.
+        warns = [
+            line for line in _load_pipeline_warnings(loc["folder"])
+            if not re.search(r"gaia|wise|catwise|marker", line, re.I)
+        ]
+        _save_pipeline_warnings(loc["folder"], warns)
+    return data
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True}
@@ -362,6 +394,19 @@ def location(target: str | None = Query(None, description="official target key, 
     return loc
 
 
+def _overlay_warnings_still_needed(folder: Path, warnings: list[str]) -> list[str]:
+    """Drop Gaia/WISE IRSA complaints once on-disk sidecars have real markers again."""
+    gaia_path, wise_path = folder / "gaia.json", folder / "wise.json"
+    gaia = json.loads(gaia_path.read_text()) if gaia_path.exists() else None
+    wise = json.loads(wise_path.read_text()) if wise_path.exists() else None
+    if not _sidecar_incomplete(gaia, "stars") and not _sidecar_incomplete(wise, "sources"):
+        return [
+            w for w in warnings
+            if not re.search(r"gaia|wise|catwise|marker", str(w), re.I)
+        ]
+    return warnings
+
+
 @app.get("/api/frames")
 def frames(loc: dict = Depends(location)):
     m = _read(loc, "manifest.json", "frames")
@@ -369,17 +414,18 @@ def frames(loc: dict = Depends(location)):
         f["png_url"] = loc["url"] + f["png"]
         if f.get("flags_png"):
             f["flags_png_url"] = loc["url"] + f["flags_png"]
-    return {**m, "base_url": loc["url"], "source": loc["kind"], "warnings": loc["warnings"]}
+    warnings = _overlay_warnings_still_needed(loc["folder"], loc["warnings"])
+    return {**m, "base_url": loc["url"], "source": loc["kind"], "warnings": warnings}
 
 
 @app.get("/api/gaia")
 def gaia(loc: dict = Depends(location)):
-    return _read(loc, "gaia.json", "Gaia markers")
+    return _refresh_overlay(loc, "gaia.json", "stars", write_gaia)
 
 
 @app.get("/api/wise")
 def wise(loc: dict = Depends(location)):
-    return _read(loc, "wise.json", "WISE markers")
+    return _refresh_overlay(loc, "wise.json", "sources", write_wise)
 
 
 @app.get("/api/diff")

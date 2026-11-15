@@ -51,8 +51,32 @@ def _stars_from_table(table) -> list[dict]:
     return stars
 
 
+def _gaia_from_vizier(ra: float, dec: float, radius_deg: float) -> list[dict]:
+    """Gaia DR3 via CDS VizieR conesearch (does not need NASA IRSA)."""
+    from backend.app.vizier_conesearch import cell, cone_search
+
+    table = cone_search("I/355/gaiadr3", ra, dec, radius_deg)
+    stars = []
+    for row in table:
+        sid = cell(row, "Source", "source_id", "DR3Name")
+        s_ra = cell(row, "RA_ICRS", "RAJ2000", "_RAJ2000", "ra")
+        s_dec = cell(row, "DE_ICRS", "DEJ2000", "_DEJ2000", "dec")
+        if sid is None or s_ra is None or s_dec is None:
+            continue
+        stars.append({
+            "source_id": str(int(sid)) if isinstance(sid, float) and sid == int(sid) else str(sid),
+            "ra": float(s_ra),
+            "dec": float(s_dec),
+            "pmra": cell(row, "pmRA", "pmra"),
+            "pmdec": cell(row, "pmDE", "pmdec"),
+            "parallax": cell(row, "Plx", "parallax"),
+            "g_mag": cell(row, "Gmag", "phot_g_mean_mag"),
+        })
+    return stars
+
+
 def _gaia_from_esa(ra: float, dec: float, radius_deg: float):
-    """Gaia DR3 via ESA's archive (astroquery) when IRSA TAP is down."""
+    """Gaia DR3 via ESA's archive (astroquery). Can hang — callers should wrap with a timeout."""
     from astroquery.gaia import Gaia
 
     Gaia.ROW_LIMIT = -1
@@ -64,11 +88,18 @@ def _gaia_from_esa(ra: float, dec: float, radius_deg: float):
     return Gaia.launch_job(adql).get_results()
 
 
+def _gaia_from_esa_timed(ra: float, dec: float, radius_deg: float, timeout_s: float = 30.0):
+    import concurrent.futures as cf
+
+    with cf.ThreadPoolExecutor(max_workers=1) as pool:
+        fut = pool.submit(_gaia_from_esa, ra, dec, radius_deg)
+        return fut.result(timeout=timeout_s)
+
+
 def gaia_stars(ra: float, dec: float, radius_deg: float) -> list[dict]:
     """Every Gaia DR3 source within radius_deg of (ra, dec), as Gaia lists it (positions for 2016.0).
 
-    Tries NASA/IPAC IRSA first (same TAP as SPHEREx). If IRSA is down, falls back to ESA's
-    Gaia archive through astroquery so overlays and proofs still work.
+    Prefer CDS VizieR (works when NASA IRSA TAP is down), then ESA Gaia, then IRSA TAP.
     """
     cache_file = CACHE_DIR / "gaia" / f"{ra:.5f}_{dec:+.5f}_{radius_deg:.4f}_gaia.json"
     if cache_file.exists():
@@ -77,28 +108,37 @@ def gaia_stars(ra: float, dec: float, radius_deg: float) -> list[dict]:
         except Exception:
             pass
 
-    table = None
-    source = f"{GAIA_TABLE} at NASA/IPAC IRSA"
-    try:
-        table = archive.run_query(f"""
-            SELECT source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag, ref_epoch
-            FROM {GAIA_TABLE}
-            WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
-        """)
-    except archive.ArchiveError as irsa_error:
-        # TAP cooldown means IRSA just failed hard; ESA often hangs ~60s and blocks the job queue.
-        if "not retried for a few minutes" in str(irsa_error):
-            raise
-        print(f"  warning: IRSA Gaia failed ({irsa_error}); trying ESA Gaia archive")
-        try:
-            table = _gaia_from_esa(ra, dec, radius_deg)
-            source = "gaiadr3.gaia_source at ESA (astroquery)"
-        except Exception as esa_error:
-            raise archive.ArchiveError(f"{irsa_error}; ESA Gaia also failed: {esa_error}") from esa_error
+    errors: list[str] = []
 
-    stars = _stars_from_table(table)
-    if "ESA" in source:
+    try:
+        stars = _gaia_from_vizier(ra, dec, radius_deg)
+        source = "I/355/gaiadr3 at CDS VizieR"
         print(f"  Gaia: {len(stars)} stars from {source}")
+    except Exception as vizier_error:
+        errors.append(f"VizieR: {vizier_error}")
+        stars = None
+        try:
+            table = _gaia_from_esa_timed(ra, dec, radius_deg)
+            stars = _stars_from_table(table)
+            source = "gaiadr3.gaia_source at ESA (astroquery)"
+            print(f"  Gaia: {len(stars)} stars from {source}")
+        except Exception as esa_error:
+            errors.append(f"ESA: {esa_error}")
+            try:
+                table = archive.run_query(f"""
+                    SELECT source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag, ref_epoch
+                    FROM {GAIA_TABLE}
+                    WHERE CONTAINS(POINT('ICRS', ra, dec),
+                                   CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
+                """)
+                stars = _stars_from_table(table)
+                source = f"{GAIA_TABLE} at NASA/IPAC IRSA"
+            except Exception as irsa_error:
+                errors.append(f"IRSA: {irsa_error}")
+                raise archive.ArchiveError(
+                    "Gaia DR3 unavailable (" + "; ".join(errors) + ")"
+                ) from irsa_error
+
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(stars, indent=1))
     return stars
@@ -193,7 +233,7 @@ def write_gaia(folder: Path) -> dict:
 
     gaia = {
         "format": FORMAT,
-        "catalogue": f"Gaia DR3 ({GAIA_TABLE} at NASA/IPAC IRSA; ESA fallback when IRSA is down)",
+        "catalogue": "Gaia DR3 (CDS VizieR I/355/gaiadr3; ESA / NASA IRSA TAP as backups)",
         "catalogue_epoch": GAIA_EPOCH,
         "query": {
             "ra": ra, "dec": dec, "radius_deg": round(radius, 6), "n_returned": len(stars),
@@ -209,7 +249,7 @@ def write_gaia(folder: Path) -> dict:
         "stars": result["stars"],
         "made_by": "backend/app/gaia.py",
         "made_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        "data_credit": "ESA Gaia DR3, via NASA/IPAC IRSA (ESA archive fallback)",
+        "data_credit": "ESA Gaia DR3 via CDS VizieR (ESA archive / NASA IRSA TAP backups)",
     }
     (folder / "gaia.json").write_text(json.dumps(gaia, indent=1, ensure_ascii=False) + "\n")
     return gaia

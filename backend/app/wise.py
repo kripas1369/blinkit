@@ -24,20 +24,18 @@ FORMAT = "spherex-blink-wise/1"
 CATWISE_TABLE = "catwise_2020"
 CATWISE_MJD = 57170.0
 CATWISE_EPOCH = 2015.4018  # mjd_to_year(57170.0)
+ALLWISE_EPOCH = 2010.5589  # approximate AllWISE mid-mission epoch
 TARGET_MATCH_ARCSEC = 3.0  # half a SPHEREx pixel
 MAX_MOTION_ARCSEC_PER_YEAR = 11.0  # Barnard's Star moves 10.4″/yr
 MARGIN_PX = 1.0
 
 
-def wise_sources(ra: float, dec: float, radius_deg: float) -> list[dict]:
-    """CatWISE2020 sources within radius_deg of (ra, dec), cached on disk."""
-    cache_file = CACHE_DIR / "catwise" / f"{ra:.5f}_{dec:+.5f}_{radius_deg:.4f}_catwise.json"
-    if cache_file.exists():
-        try:
-            return json.loads(cache_file.read_text())
-        except Exception:
-            pass
+def _value(row, name):
+    v = row[name]
+    return None if np.ma.is_masked(v) or not np.isfinite(float(v)) else float(v)
 
+
+def _catwise_from_irsa(ra: float, dec: float, radius_deg: float) -> list[dict]:
     cols = ("source_name, ra, dec, sigra, sigdec, pmra, pmdec, sigpmra, sigpmdec, "
             "w1mpro, w1sigmpro, w2mpro, w2sigmpro, w1snr, w2snr")
     adql = f"""
@@ -45,26 +43,82 @@ def wise_sources(ra: float, dec: float, radius_deg: float) -> list[dict]:
         WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.5f})) = 1
     """
     table = archive.run_query(adql)
-
-    def value(row, name):
-        v = row[name]
-        return None if np.ma.is_masked(v) or not np.isfinite(float(v)) else float(v)
-
     sources = []
     for row in table:
-        pmra_asec = value(row, "pmra")
-        pmdec_asec = value(row, "pmdec")
         sources.append({
             "source_name": str(row["source_name"]),
             "ra": float(row["ra"]),
             "dec": float(row["dec"]),
-            "pmra": pmra_asec,      # in arcsec/yr (CatWISE unit)
-            "pmdec": pmdec_asec,    # in arcsec/yr (CatWISE unit)
-            "w1_mag": value(row, "w1mpro"),
-            "w2_mag": value(row, "w2mpro"),
-            "w1_snr": value(row, "w1snr"),
-            "w2_snr": value(row, "w2snr"),
+            "pmra": _value(row, "pmra"),      # arcsec/yr
+            "pmdec": _value(row, "pmdec"),
+            "w1_mag": _value(row, "w1mpro"),
+            "w2_mag": _value(row, "w2mpro"),
+            "w1_snr": _value(row, "w1snr"),
+            "w2_snr": _value(row, "w2snr"),
+            "catalog": "catwise2020",
+            "epoch": CATWISE_EPOCH,
         })
+    return sources
+
+
+def _allwise_from_vizier(ra: float, dec: float, radius_deg: float) -> list[dict]:
+    """AllWISE via CDS VizieR — used when IRSA CatWISE TAP is down."""
+    from backend.app.vizier_conesearch import cell, cone_search
+
+    table = cone_search("II/328/allwise", ra, dec, radius_deg)
+    sources = []
+    for row in table:
+        name = cell(row, "AllWISE", "Name", "source_name")
+        s_ra = cell(row, "RAJ2000", "_RAJ2000", "ra")
+        s_dec = cell(row, "DEJ2000", "_DEJ2000", "dec")
+        if name is None or s_ra is None or s_dec is None:
+            continue
+        pmra_mas = cell(row, "pmRA", "pmra")
+        pmdec_mas = cell(row, "pmDE", "pmdec")
+        sources.append({
+            "source_name": str(name),
+            "ra": float(s_ra),
+            "dec": float(s_dec),
+            # Match CatWISE storage: arcsec/yr (AllWISE Vizier pm is mas/yr).
+            "pmra": None if pmra_mas is None else float(pmra_mas) / 1000.0,
+            "pmdec": None if pmdec_mas is None else float(pmdec_mas) / 1000.0,
+            "w1_mag": cell(row, "W1mag", "w1mpro"),
+            "w2_mag": cell(row, "W2mag", "w2mpro"),
+            "w1_snr": None,
+            "w2_snr": None,
+            "catalog": "allwise",
+            "epoch": ALLWISE_EPOCH,
+        })
+    return sources
+
+
+def wise_sources(ra: float, dec: float, radius_deg: float) -> list[dict]:
+    """Infrared point sources within radius_deg of (ra, dec), cached on disk.
+
+    Prefer CatWISE2020 at NASA IRSA; if IRSA TAP is down, use AllWISE from CDS VizieR
+    so WISE overlays still appear.
+    """
+    cache_file = CACHE_DIR / "catwise" / f"{ra:.5f}_{dec:+.5f}_{radius_deg:.4f}_wise_overlay.json"
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text())
+        except Exception:
+            pass
+
+    errors: list[str] = []
+    try:
+        sources = _catwise_from_irsa(ra, dec, radius_deg)
+        print(f"  WISE: {len(sources)} CatWISE2020 sources from IRSA")
+    except Exception as irsa_error:
+        errors.append(f"IRSA CatWISE: {irsa_error}")
+        try:
+            sources = _allwise_from_vizier(ra, dec, radius_deg)
+            print(f"  WISE: {len(sources)} AllWISE sources from VizieR (IRSA CatWISE unavailable)")
+        except Exception as vizier_error:
+            errors.append(f"VizieR AllWISE: {vizier_error}")
+            raise archive.ArchiveError(
+                "WISE catalogue unavailable (" + "; ".join(errors) + ")"
+            ) from vizier_error
 
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(sources, indent=1))
@@ -79,13 +133,14 @@ def search_radius_deg(fov_arcmin: float, years_from_epoch: float) -> float:
 
 
 def source_at(source: dict, year: float) -> tuple[float, float]:
-    """Calculate position at `year` from CatWISE epoch (2015.4)."""
+    """Calculate position at `year` from the catalogue epoch (CatWISE 2015.4 or AllWISE ~2010.6)."""
     if source["pmra"] is None or source["pmdec"] is None:
         return source["ra"], source["dec"]
-    # CatWISE pmra and pmdec are in arcsec/year. position_at expects mas/year.
+    # Stored pmra/pmdec are arcsec/year. position_at expects mas/year.
     pmra_mas = source["pmra"] * 1000.0
     pmdec_mas = source["pmdec"] * 1000.0
-    return position_at(source["ra"], source["dec"], pmra_mas, pmdec_mas, CATWISE_EPOCH, year)
+    epoch = float(source.get("epoch") or CATWISE_EPOCH)
+    return position_at(source["ra"], source["dec"], pmra_mas, pmdec_mas, epoch, year)
 
 
 def markers(
@@ -158,17 +213,25 @@ def write_wise(folder: Path) -> dict:
     try:
         sources = wise_sources(ra, dec, radius)
     except archive.ArchiveError as exc:
-        print(f"  warning: CatWISE TAP failed ({exc}); writing empty wise.json")
+        print(f"  warning: WISE catalogue failed ({exc}); writing empty wise.json")
         sources = []
         unavailable = str(exc)
 
     result = markers(ra, dec, fov, frames, sources, target_year=2026.0)
+    catalogs = {s.get("catalog") or "catwise2020" for s in sources}
+    used_allwise = catalogs == {"allwise"}
+    catalogue = (
+        "AllWISE (CDS VizieR II/328/allwise; IRSA CatWISE TAP was unavailable)"
+        if used_allwise
+        else f"CatWISE2020 ({CATWISE_TABLE} at NASA/IPAC IRSA; AllWISE VizieR backup)"
+    )
+    epoch_used = ALLWISE_EPOCH if used_allwise else CATWISE_EPOCH
 
     wise = {
         "format": FORMAT,
-        "catalogue": f"CatWISE2020 ({CATWISE_TABLE} at NASA/IPAC IRSA)",
-        "catalogue_epoch": round(CATWISE_EPOCH, 4),
-        "catalogue_mjd": CATWISE_MJD,
+        "catalogue": catalogue,
+        "catalogue_epoch": round(epoch_used, 4),
+        "catalogue_mjd": None if used_allwise else CATWISE_MJD,
         "query": {
             "ra": ra,
             "dec": dec,
@@ -177,18 +240,22 @@ def write_wise(folder: Path) -> dict:
             **({"unavailable": unavailable} if unavailable else {}),
         },
         "method": (
-            f"each CatWISE2020 position (epoch {round(CATWISE_EPOCH, 4)}) moved in a straight line with "
-            "its proper motion (pmra/pmdec in arcsec/yr converted to mas/yr) to the frame's MJD; "
-            f"sources without proper motion stay at their {round(CATWISE_EPOCH, 4)} position"
+            f"each catalogue position (epoch {round(epoch_used, 4)}) moved in a straight line with "
+            "its proper motion (stored as arcsec/yr, applied as mas/yr) to the frame's MJD; "
+            f"sources without proper motion stay at their {round(epoch_used, 4)} position"
         ),
         "pixel_convention": "PNG pixels: x to the right (west), y down (south), 0 = centre of the first pixel",
-        "target_match_rule": f"the CatWISE source nearest the grid centre at 2026.0, if within {TARGET_MATCH_ARCSEC}″",
+        "target_match_rule": f"the IR source nearest the grid centre at 2026.0, if within {TARGET_MATCH_ARCSEC}″",
         "target_match": result["target_match"],
         "frames": [{"epoch_id": f["epoch_id"], "mjd": f["mjd"], "year": round(y, 4)} for f, y in zip(frames, years)],
         "sources": result["sources"],
         "made_by": "backend/app/wise.py",
         "made_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        "data_credit": "CatWISE2020 (Eisenhardt et al. 2020, Marocco et al. 2021), via NASA/IPAC IRSA",
+        "data_credit": (
+            "AllWISE (Cutri et al.), via CDS VizieR"
+            if used_allwise
+            else "CatWISE2020 (Eisenhardt et al. 2020, Marocco et al. 2021), via NASA/IPAC IRSA"
+        ),
     }
     (folder / "wise.json").write_text(json.dumps(wise, indent=1, ensure_ascii=False) + "\n")
     return wise

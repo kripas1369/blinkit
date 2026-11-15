@@ -1,2 +1,0 @@
-Gaia DR3 markers failed: IRSA TAP is down (not retried for a few minutes): ReadTimeout: HTTPSConnectionPool(host='irsa.ipac.caltech.edu', port=443): Read timed out. (read timeout=90)
-CatWISE2020 markers failed: IRSA TAP is down (not retried for a few minutes): ReadTimeout: HTTPSConnectionPool(host='irsa.ipac.caltech.edu', port=443): Read timed out. (read timeout=90)

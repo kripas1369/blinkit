@@ -4,7 +4,7 @@ const ARCHIVE_HINT =
   "NASA’s IRSA archive did not answer (or timed out). Blinkit is working — this is on IRSA’s side, not our server. Try again in a few minutes.";
 
 const OVERLAY_HINT =
-  "Star-catalogue overlays (Gaia / WISE) are incomplete right now because NASA IRSA did not answer. The flipbook still works; try overlays again later.";
+  "Star-catalogue overlays (Gaia / WISE) could not be refreshed right now (IRSA and the backup catalogues did not answer). The flipbook still works; try overlays again later.";
 
 /** True when the text is about NASA IRSA / TAP / ESA catalogue downtime. */
 export function looksLikeArchiveOutage(text) {

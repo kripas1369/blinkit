@@ -1,18 +1,17 @@
 {
  "format": "spherex-blink-wise/1",
- "catalogue": "CatWISE2020 (catwise_2020 at NASA/IPAC IRSA)",
- "catalogue_epoch": 2015.4018,
- "catalogue_mjd": 57170.0,
+ "catalogue": "AllWISE (CDS VizieR II/328/allwise; IRSA CatWISE TAP was unavailable)",
+ "catalogue_epoch": 2010.5589,
+ "catalogue_mjd": null,
  "query": {
   "ra": 248.16723307280128,
   "dec": 66.75502382666444,
   "radius_deg": 0.070884,
-  "n_returned": 0,
-  "unavailable": "IRSA TAP is down (not retried for a few minutes): fill missing sidecars"
+  "n_returned": 30
  },
- "method": "each CatWISE2020 position (epoch 2015.4018) moved in a straight line with its proper motion (pmra/pmdec in arcsec/yr converted to mas/yr) to the frame's MJD; sources without proper motion stay at their 2015.4018 position",
+ "method": "each catalogue position (epoch 2010.5589) moved in a straight line with its proper motion (stored as arcsec/yr, applied as mas/yr) to the frame's MJD; sources without proper motion stay at their 2010.5589 position",
  "pixel_convention": "PNG pixels: x to the right (west), y down (south), 0 = centre of the first pixel",
- "target_match_rule": "the CatWISE source nearest the grid centre at 2026.0, if within 3.0″",
+ "target_match_rule": "the IR source nearest the grid centre at 2026.0, if within 3.0″",
  "target_match": null,
  "frames": [
   {
@@ -31,8 +30,31 @@
    "year": 2026.4703
   }
  ],
- "sources": [],
+ "sources": [
+  {
+   "source_name": "J163240.19+664517.9",
+   "w1_mag": 0.39,
+   "w2_mag": 0.13,
+   "pmra": 0.609,
+   "pmdec": -0.255,
+   "has_motion": true,
+   "xy": [
+    [
+     12.469,
+     14.639
+    ],
+    [
+     12.424,
+     14.658
+    ],
+    [
+     12.369,
+     14.681
+    ]
+   ]
+  }
+ ],
  "made_by": "backend/app/wise.py",
- "made_at": "2026-11-15 06:14 UTC",
- "data_credit": "CatWISE2020 (Eisenhardt et al. 2020, Marocco et al. 2021), via NASA/IPAC IRSA"
+ "made_at": "2026-11-15 15:46 UTC",
+ "data_credit": "AllWISE (Cutri et al.), via CDS VizieR"
 }

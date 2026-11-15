@@ -1,18 +1,17 @@
 {
  "format": "spherex-blink-wise/1",
- "catalogue": "CatWISE2020 (catwise_2020 at NASA/IPAC IRSA)",
- "catalogue_epoch": 2015.4018,
- "catalogue_mjd": 57170.0,
+ "catalogue": "AllWISE (CDS VizieR II/328/allwise; IRSA CatWISE TAP was unavailable)",
+ "catalogue_epoch": 2010.5589,
+ "catalogue_mjd": null,
  "query": {
   "ra": 76.95658657557826,
   "dec": 30.401291346111112,
   "radius_deg": 0.071582,
-  "n_returned": 0,
-  "unavailable": "IRSA TAP is down (not retried for a few minutes): fill missing sidecars"
+  "n_returned": 252
  },
- "method": "each CatWISE2020 position (epoch 2015.4018) moved in a straight line with its proper motion (pmra/pmdec in arcsec/yr converted to mas/yr) to the frame's MJD; sources without proper motion stay at their 2015.4018 position",
+ "method": "each catalogue position (epoch 2010.5589) moved in a straight line with its proper motion (stored as arcsec/yr, applied as mas/yr) to the frame's MJD; sources without proper motion stay at their 2010.5589 position",
  "pixel_convention": "PNG pixels: x to the right (west), y down (south), 0 = centre of the first pixel",
- "target_match_rule": "the CatWISE source nearest the grid centre at 2026.0, if within 3.0″",
+ "target_match_rule": "the IR source nearest the grid centre at 2026.0, if within 3.0″",
  "target_match": null,
  "frames": [
   {
@@ -31,8 +30,581 @@
    "year": 2026.6986
   }
  ],
- "sources": [],
+ "sources": [
+  {
+   "source_name": "J050749.54+302404.7",
+   "w1_mag": 6.25,
+   "w2_mag": 5.23,
+   "pmra": -0.38,
+   "pmdec": -0.481,
+   "has_motion": true,
+   "xy": [
+    [
+     15.002,
+     15.159
+    ],
+    [
+     15.032,
+     15.197
+    ],
+    [
+     15.065,
+     15.238
+    ]
+   ]
+  },
+  {
+   "source_name": "J050754.63+302232.2",
+   "w1_mag": 9.43,
+   "w2_mag": 9.47,
+   "pmra": -0.047,
+   "pmdec": -0.035,
+   "has_motion": true,
+   "xy": [
+    [
+     3.472,
+     29.116
+    ],
+    [
+     3.475,
+     29.119
+    ],
+    [
+     3.479,
+     29.122
+    ]
+   ]
+  },
+  {
+   "source_name": "J050742.90+302434.0",
+   "w1_mag": 11.49,
+   "w2_mag": 11.5,
+   "pmra": -0.016,
+   "pmdec": 0.081,
+   "has_motion": true,
+   "xy": [
+    [
+     28.089,
+     9.023
+    ],
+    [
+     28.09,
+     9.017
+    ],
+    [
+     28.091,
+     9.01
+    ]
+   ]
+  },
+  {
+   "source_name": "J050756.16+302343.5",
+   "w1_mag": 11.75,
+   "w2_mag": 11.83,
+   "pmra": -0.026,
+   "pmdec": -0.009,
+   "has_motion": true,
+   "xy": [
+    [
+     0.21,
+     17.444
+    ],
+    [
+     0.212,
+     17.444
+    ],
+    [
+     0.214,
+     17.445
+    ]
+   ]
+  },
+  {
+   "source_name": "J050743.73+302435.0",
+   "w1_mag": 12.35,
+   "w2_mag": 12.35,
+   "pmra": null,
+   "pmdec": null,
+   "has_motion": false,
+   "xy": [
+    [
+     26.296,
+     9.054
+    ],
+    [
+     26.296,
+     9.054
+    ],
+    [
+     26.296,
+     9.054
+    ]
+   ]
+  },
+  {
+   "source_name": "J050751.63+302436.2",
+   "w1_mag": 12.8,
+   "w2_mag": 12.25,
+   "pmra": -0.075,
+   "pmdec": -0.265,
+   "has_motion": true,
+   "xy": [
+    [
+     9.872,
+     9.512
+    ],
+    [
+     9.877,
+     9.533
+    ],
+    [
+     9.884,
+     9.555
+    ]
+   ]
+  },
+  {
+   "source_name": "J050749.12+302513.2",
+   "w1_mag": 13.46,
+   "w2_mag": 13.53,
+   "pmra": -0.049,
+   "pmdec": 0.184,
+   "has_motion": true,
+   "xy": [
+    [
+     15.088,
+     2.394
+    ],
+    [
+     15.092,
+     2.379
+    ],
+    [
+     15.096,
+     2.364
+    ]
+   ]
+  },
+  {
+   "source_name": "J050747.83+302243.0",
+   "w1_mag": 13.81,
+   "w2_mag": 13.94,
+   "pmra": 0.0,
+   "pmdec": 0.083,
+   "has_motion": true,
+   "xy": [
+    [
+     17.679,
+     27.063
+    ],
+    [
+     17.679,
+     27.057
+    ],
+    [
+     17.679,
+     27.05
+    ]
+   ]
+  },
+  {
+   "source_name": "J050755.75+302536.6",
+   "w1_mag": 13.95,
+   "w2_mag": 14.05,
+   "pmra": -0.08,
+   "pmdec": -0.112,
+   "has_motion": true,
+   "xy": [
+    [
+     1.21,
+     -0.68
+    ],
+    [
+     1.217,
+     -0.671
+    ],
+    [
+     1.224,
+     -0.661
+    ]
+   ]
+  },
+  {
+   "source_name": "J050747.33+302457.4",
+   "w1_mag": 13.98,
+   "w2_mag": 14.01,
+   "pmra": -0.088,
+   "pmdec": 0.067,
+   "has_motion": true,
+   "xy": [
+    [
+     18.94,
+     5.244
+    ],
+    [
+     18.947,
+     5.239
+    ],
+    [
+     18.955,
+     5.234
+    ]
+   ]
+  },
+  {
+   "source_name": "J050755.86+302328.1",
+   "w1_mag": 14.0,
+   "w2_mag": 14.12,
+   "pmra": 0.082,
+   "pmdec": 0.204,
+   "has_motion": true,
+   "xy": [
+    [
+     0.567,
+     19.438
+    ],
+    [
+     0.561,
+     19.422
+    ],
+    [
+     0.554,
+     19.404
+    ]
+   ]
+  },
+  {
+   "source_name": "J050749.30+302501.3",
+   "w1_mag": 14.19,
+   "w2_mag": 14.15,
+   "pmra": null,
+   "pmdec": null,
+   "has_motion": false,
+   "xy": [
+    [
+     14.589,
+     4.775
+    ],
+    [
+     14.589,
+     4.775
+    ],
+    [
+     14.589,
+     4.775
+    ]
+   ]
+  },
+  {
+   "source_name": "J050750.92+302518.1",
+   "w1_mag": 14.21,
+   "w2_mag": 14.27,
+   "pmra": -0.065,
+   "pmdec": 0.268,
+   "has_motion": true,
+   "xy": [
+    [
+     11.343,
+     1.382
+    ],
+    [
+     11.348,
+     1.361
+    ],
+    [
+     11.354,
+     1.338
+    ]
+   ]
+  },
+  {
+   "source_name": "J050755.79+302355.1",
+   "w1_mag": 14.24,
+   "w2_mag": 14.28,
+   "pmra": -0.052,
+   "pmdec": -0.019,
+   "has_motion": true,
+   "xy": [
+    [
+     1.058,
+     15.586
+    ],
+    [
+     1.062,
+     15.588
+    ],
+    [
+     1.066,
+     15.589
+    ]
+   ]
+  },
+  {
+   "source_name": "J050756.17+302251.1",
+   "w1_mag": 14.8,
+   "w2_mag": 15.07,
+   "pmra": 0.056,
+   "pmdec": 0.095,
+   "has_motion": true,
+   "xy": [
+    [
+     -0.005,
+     25.724
+    ],
+    [
+     -0.009,
+     25.716
+    ],
+    [
+     -0.014,
+     25.708
+    ]
+   ]
+  },
+  {
+   "source_name": "J050753.73+302342.6",
+   "w1_mag": 14.95,
+   "w2_mag": 14.81,
+   "pmra": -0.458,
+   "pmdec": -0.19,
+   "has_motion": true,
+   "xy": [
+    [
+     6.383,
+     18.038
+    ],
+    [
+     6.419,
+     18.053
+    ],
+    [
+     6.458,
+     18.069
+    ]
+   ]
+  },
+  {
+   "source_name": "J050756.44+302530.2",
+   "w1_mag": 15.26,
+   "w2_mag": 15.54,
+   "pmra": -0.254,
+   "pmdec": -0.232,
+   "has_motion": true,
+   "xy": [
+    [
+     0.183,
+     0.651
+    ],
+    [
+     0.203,
+     0.669
+    ],
+    [
+     0.225,
+     0.689
+    ]
+   ]
+  },
+  {
+   "source_name": "J050743.13+302330.1",
+   "w1_mag": 15.47,
+   "w2_mag": 15.46,
+   "pmra": -0.434,
+   "pmdec": 0.176,
+   "has_motion": true,
+   "xy": [
+    [
+     28.629,
+     19.167
+    ],
+    [
+     28.663,
+     19.154
+    ],
+    [
+     28.7,
+     19.139
+    ]
+   ]
+  },
+  {
+   "source_name": "J050747.57+302509.0",
+   "w1_mag": 15.53,
+   "w2_mag": 15.85,
+   "pmra": -0.272,
+   "pmdec": -0.36,
+   "has_motion": true,
+   "xy": [
+    [
+     18.898,
+     4.417
+    ],
+    [
+     18.919,
+     4.445
+    ],
+    [
+     18.943,
+     4.476
+    ]
+   ]
+  },
+  {
+   "source_name": "J050744.29+302344.2",
+   "w1_mag": 15.64,
+   "w2_mag": 15.55,
+   "pmra": -0.347,
+   "pmdec": -0.169,
+   "has_motion": true,
+   "xy": [
+    [
+     25.981,
+     17.725
+    ],
+    [
+     26.008,
+     17.739
+    ],
+    [
+     26.038,
+     17.753
+    ]
+   ]
+  },
+  {
+   "source_name": "J050749.93+302304.0",
+   "w1_mag": 15.83,
+   "w2_mag": 16.05,
+   "pmra": -0.193,
+   "pmdec": -0.011,
+   "has_motion": true,
+   "xy": [
+    [
+     13.739,
+     23.881
+    ],
+    [
+     13.754,
+     23.882
+    ],
+    [
+     13.77,
+     23.883
+    ]
+   ]
+  },
+  {
+   "source_name": "J050743.18+302413.4",
+   "w1_mag": 16.14,
+   "w2_mag": 17.01,
+   "pmra": -0.47,
+   "pmdec": 0.338,
+   "has_motion": true,
+   "xy": [
+    [
+     28.605,
+     11.731
+    ],
+    [
+     28.642,
+     11.705
+    ],
+    [
+     28.682,
+     11.676
+    ]
+   ]
+  },
+  {
+   "source_name": "J050756.33+302409.0",
+   "w1_mag": 16.36,
+   "w2_mag": 16.84,
+   "pmra": -0.241,
+   "pmdec": -0.586,
+   "has_motion": true,
+   "xy": [
+    [
+     0.375,
+     14.732
+    ],
+    [
+     0.394,
+     14.778
+    ],
+    [
+     0.415,
+     14.829
+    ]
+   ]
+  },
+  {
+   "source_name": "J050758.28+302406.5",
+   "w1_mag": 16.94,
+   "w2_mag": 16.36,
+   "pmra": -1.081,
+   "pmdec": -0.217,
+   "has_motion": true,
+   "xy": [
+    [
+     -1.642,
+     14.218
+    ],
+    [
+     -1.557,
+     14.235
+    ],
+    [
+     -1.464,
+     14.253
+    ]
+   ]
+  },
+  {
+   "source_name": "J050743.04+302403.0",
+   "w1_mag": 16.99,
+   "w2_mag": 17.16,
+   "pmra": 0.682,
+   "pmdec": 2.543,
+   "has_motion": true,
+   "xy": [
+    [
+     26.076,
+     8.009
+    ],
+    [
+     26.023,
+     7.811
+    ],
+    [
+     25.964,
+     7.592
+    ]
+   ]
+  },
+  {
+   "source_name": "J050743.95+302259.8",
+   "w1_mag": 17.03,
+   "w2_mag": 17.0,
+   "pmra": -0.895,
+   "pmdec": 1.985,
+   "has_motion": true,
+   "xy": [
+    [
+     28.035,
+     19.651
+    ],
+    [
+     28.105,
+     19.496
+    ],
+    [
+     28.182,
+     19.326
+    ]
+   ]
+  }
+ ],
  "made_by": "backend/app/wise.py",
- "made_at": "2026-11-15 06:14 UTC",
- "data_credit": "CatWISE2020 (Eisenhardt et al. 2020, Marocco et al. 2021), via NASA/IPAC IRSA"
+ "made_at": "2026-11-15 15:44 UTC",
+ "data_credit": "AllWISE (Cutri et al.), via CDS VizieR"
 }

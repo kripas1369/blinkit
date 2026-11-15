@@ -703,7 +703,7 @@ export function createFlipbook({
       if (friendly.length) {
         const alert = document.createElement("span");
         alert.className = "flip-note-alert";
-        alert.textContent = ` NASA IRSA is down right now — ${friendly.join(" ")}`;
+        alert.textContent = ` ${friendly.join(" ")}`;
         el.note.appendChild(alert);
       }
       el.gaiaNoteBox.textContent = gaiaNote(gaia, m.pixel_arcsec);

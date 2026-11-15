@@ -1,1 +1,0 @@
-Gaia DR3 markers failed: IRSA TAP is down (not retried for a few minutes): 502 Server Error: Proxy Error for url: https://irsa.ipac.caltech.edu/TAP/sync; ESA Gaia also failed: [Errno 60] Operation timed out
