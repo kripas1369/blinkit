@@ -10,21 +10,41 @@ import { detectorsRated, RATINGS, TARGETS } from "./targets.js";
 import { createTimeline } from "./timeline.js";
 import { buildUrlState, DETECTORS, FOV_MAX, readUrlState, VIEW_DEFAULTS } from "./urlstate.js";
 
-// Aladin Lite from two CDNs: the CDS server was unreachable on 31 Oct 2026, jsDelivr worked.
+// Aladin Lite ES module — try several CDNs (HTTPS sites need these to answer with CORS).
 const ALADIN_SCRIPTS = [
   "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js",
   "https://unpkg.com/aladin-lite@3.8.2/dist/aladin.js",
+  "https://esm.sh/aladin-lite@3.8.2",
 ];
 
-// Background images: ESA ESASky copies of the CDS surveys. They send CORS headers, which the
-// WebGL map needs; the IRSA copies do not, and the CDS servers were unreachable on 31 Oct 2026.
+// Built-in HiPS ids (hips) are preferred: Aladin resolves them. Direct ESA/CDS URLs are fallbacks.
 const SURVEYS = [
-  { id: "2mass", name: "2MASS near-infrared (J, H, K)", url: "https://skies.esac.esa.int/2MASSColor" },
-  { id: "allwise", name: "AllWISE mid-infrared (W1, W2, W4)", url: "https://skies.esac.esa.int/AllWISEColor" },
-  { id: "dss2", name: "DSS2 visible light", url: "https://skies.esac.esa.int/DSSColor" },
+  {
+    id: "2mass",
+    name: "2MASS near-infrared (J, H, K)",
+    hips: "P/2MASS/color",
+    url: "https://skies.esac.esa.int/2MASSColor",
+  },
+  {
+    id: "allwise",
+    name: "AllWISE mid-infrared (W1, W2, W4)",
+    hips: "P/allWISE/color",
+    url: "https://skies.esac.esa.int/AllWISEColor",
+  },
+  {
+    id: "dss2",
+    name: "DSS2 visible light",
+    hips: "P/DSS2/color",
+    url: "https://skies.esac.esa.int/DSSColor",
+  },
 ];
 // The background surveys look very dark in the small map; lift them a little.
 const MAP_LOOK = { brightness: 0.1 };
+
+function surveyLayer(survey) {
+  // Prefer the HiPS id so Aladin can pick a mirror that answers from the visitor's network.
+  return survey.hips || survey.url;
+}
 
 const COORD_PLACEHOLDERS = { deg: ["RA 269.452", "Dec +4.693"], hms: ["RA 17h57m48.5s", "Dec +04d41m36s"] };
 const COORD_APPLY_MS = 800;   // pause in typing before a valid position is used
@@ -631,7 +651,9 @@ function setInspector(open) {
 }
 
 function wireInspector() {
-  split.classList.toggle("inspector-closed", localStorage.getItem(INSPECTOR_KEY) === "1");
+  // Default: sky map panel open on desktop (Aladin needs a visible box to draw).
+  const preferClosed = localStorage.getItem(INSPECTOR_KEY) === "1";
+  split.classList.toggle("inspector-closed", preferClosed);
   inspectorToggle.addEventListener("click", () => setInspector(!inspectorOpen()));
   $("inspector-close").addEventListener("click", () => setInspector(false));
   sheetBackdrop.addEventListener("click", () => setInspector(false));
@@ -742,35 +764,49 @@ async function loadAladin() {
 async function startMap() {
   A = await loadAladin();
   if (!A) {
-    mapMessage.textContent = "The sky map could not load (Aladin Lite is unreachable). Search, targets and share links still work.";
+    mapMessage.textContent =
+      "The sky map could not load (Aladin Lite CDN blocked or offline). Open Sky map after a refresh, or use search/targets — the flipbook still works.";
     return;
   }
   try {
     await A.init;
   } catch (err) {
-    mapMessage.textContent = `The sky map could not start (${err}). Search, targets and share links still work.`;
+    mapMessage.textContent =
+      `The sky map could not start (${err}). Try another browser or disable strict tracking prevention. Search and official targets still work.`;
     return;
   }
-  mapMessage.remove();
+  // Keep the sky panel visible so Aladin can size its WebGL canvas.
+  setInspector(true);
   const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
-  aladin = A.aladin("#aladin", {
-    survey: SURVEYS[0].url,
-    target: `${first.ra} ${first.dec}`,
-    fov: state.ra !== null ? viewFovDegrees() : 0.5,
-    cooFrame: "ICRS",
-    showReticle: true,
-    reticleColor: "#ffffff",
-    showZoomControl: true,
-    showFullscreenControl: true,
-    showLayersControl: false,
-    showGotoControl: false,
-    showProjectionControl: false,
-    showSimbadPointerControl: false,
-    showShareControl: false,
-    showCooGrid: false,
-    showFrame: true,
-  });
-  aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
+  try {
+    aladin = A.aladin("#aladin", {
+      survey: surveyLayer(SURVEYS[0]),
+      target: `${first.ra} ${first.dec}`,
+      fov: state.ra !== null ? viewFovDegrees() : 0.5,
+      cooFrame: "ICRS",
+      showReticle: true,
+      reticleColor: "#ffffff",
+      showZoomControl: true,
+      showFullscreenControl: true,
+      showLayersControl: false,
+      showGotoControl: false,
+      showProjectionControl: false,
+      showSimbadPointerControl: false,
+      showShareControl: false,
+      showCooGrid: false,
+      showFrame: true,
+    });
+    try {
+      aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(SURVEYS[0]), { name: SURVEYS[0].name, ...MAP_LOOK }));
+    } catch {
+      aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
+    }
+    mapMessage.remove();
+  } catch (err) {
+    mapMessage.textContent =
+      `The sky map could not draw (${err}). Search and official targets still work.`;
+    return;
+  }
   fovOverlay = A.graphicOverlay({ color: "#ffffff", lineWidth: 2 });
   aladin.addOverlay(fovOverlay);
   // Aladin sometimes reports the end of a pan as a click; only a still press picks a position.
@@ -799,7 +835,11 @@ async function startMap() {
 function changeSurvey() {
   const survey = SURVEYS.find((s) => s.id === surveySelect.value);
   if (!aladin || !survey) return;
-  aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
+  try {
+    aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(survey), { name: survey.name, ...MAP_LOOK }));
+  } catch {
+    aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
+  }
 }
 
 async function start() {
