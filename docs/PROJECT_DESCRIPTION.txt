@@ -1,0 +1,7 @@
+Blinkit (team Not42) turns real NASA SPHEREx sky visits into an accessible flipbook to spot what moved or changed over time. It provides time-ordered blinking, WiseView-style color composites, ±5σ difference maps, and Gaia DR3 motion verification. We also began exploring "Six Eyes" to prototype multi-detector deep stacks and coarse spectral trends across bands.
+
+Try it: https://blinkit.study (primary) · https://aws.blinkit.study (AWS backup) · Code: https://github.com/kripas1369/blinkit (branch phase1-complete)
+
+The challenge asks how SPHEREx's time-domain scans can uncover hidden movers like cold brown dwarfs and Planet X candidates. Handling raw 62 MB FITS files with variable filter wavelengths is daunting. Blinkit solves this by streaming small pixel cutouts in seconds, aligning visits onto a common grid, and vetting candidates against optical and infrared catalogs.
+
+We see this hackathon as our foundation, not the finish line. Much remains to be done—especially refining multi-detector coadds, spectral extraction, and automated candidate vetting. Blinkit provides an honest, transparent tool that we will keep developing and proving as SPHEREx continues surveying the dynamic universe.

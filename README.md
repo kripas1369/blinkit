@@ -1,5 +1,7 @@
 # Blinkit — SPHEREx flipbook (NASA Space Apps 2026)
 
+**https://blinkit.study** · backup **https://aws.blinkit.study**
+
 Compare real SPHEREx visits of the same sky in a flipbook: blink, color, minus-median, difference, visit stack, and Gaia motion proof.
 
 **Team Not42** (Kripas Khatiwada & Govinda) · Branch: `phase1-complete`
