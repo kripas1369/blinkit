@@ -853,16 +853,9 @@ async function startAladinMap(first, bootId) {
 }
 
 async function startMap() {
-  const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
-  const bootId = ++mapBootId;
-  setMapLoading("Trying Aladin Lite…");
-  try {
-    await withTimeout(startAladinMap(first, bootId), ALADIN_TOTAL_MS, "Aladin Lite");
-  } catch (err) {
-    if (bootId !== mapBootId) return;
-    mapBootId += 1;
-    showEsaskyMap(first.ra, first.dec, String(err?.message || err));
-  }
+  // Aladin Lite often sits on “Loading…” forever (CDN/WASM/HiPS). ESASky is the main map.
+  const first = state.ra !== null ? state : targetPosition(TARGETS.find((t) => t.key === "barnard") || TARGETS[0]);
+  showEsaskyMap(first.ra, first.dec);
 }
 
 function changeSurvey() {
@@ -898,10 +891,12 @@ function esaskySrc(ra, dec) {
   return `https://sky.esa.int/esasky?${q}`;
 }
 
-/** ESASky iframe — same job as Aladin (pan/zoom sky), more reliable behind HTTPS hosts. */
+/** ESASky iframe — primary sky map (Aladin Lite is skipped; it often hangs on load). */
 function showEsaskyMap(ra, dec, reason = "") {
   mapMode = "esasky";
   aladin = null;
+  A = null;
+  mapBootId += 1;
   setInspector(true);
   const box = $("aladin");
   if (!box) return;
@@ -917,10 +912,9 @@ function showEsaskyMap(ra, dec, reason = "") {
   box.appendChild(frame);
   const help = document.querySelector(".sky-panel .map-help");
   if (help) {
-    help.textContent =
-      "ESASky map" +
-      (reason ? ` (Aladin Lite unavailable: ${reason})` : "") +
-      ". Pan and zoom inside the frame. Use search or official targets to set Blinkit’s position.";
+    help.textContent = reason
+      ? `ESASky map (Aladin Lite unavailable: ${reason}). Pan and zoom inside the frame. Use search or official targets to set Blinkit’s position.`
+      : "ESASky map. Pan and zoom inside the frame. Use search or official targets to set Blinkit’s position.";
   }
 }
 
