@@ -25,9 +25,12 @@ def load_visit_frame(fits_path: Path) -> dict:
         sigma = hdul["SIGMA"].data.astype(np.float32)
         bad = hdul["FLAGGED"].data.astype(bool)
         covered = hdul["HAS_VALUE"].data.astype(bool)
-        mjd = float(hdul[0].header.get("MJD-AVG", 0.0))
-        n_images = int(hdul[0].header.get("NIMAGES", 1))
-        pixsrc = hdul[0].header.get("PIXSRC")
+        # New files put metadata on primary; older epoch FITS only had it on IMAGE.
+        primary = hdul[0].header
+        image_hdr = hdul["IMAGE"].header
+        mjd = float(primary.get("MJD-AVG", image_hdr.get("MJD-AVG", 0.0)))
+        n_images = int(primary.get("NIMAGES", image_hdr.get("NIMAGES", 1)))
+        pixsrc = primary.get("PIXSRC", image_hdr.get("PIXSRC"))
     return {
         "image": image,
         "sigma": sigma,
@@ -89,12 +92,15 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
     mean_mjd = float(np.mean([l["mjd"] for l in loaded]))
     total_images = sum(f["n_images"] for f in frames)
     pix_sources = {l["pixsrc"] for l in loaded if l.get("pixsrc")}
+    if not pix_sources:
+        # Fall back to manifest provenance when older epoch FITS lack PIXSRC.
+        pix_sources = {f.get("pixel_source") for f in frames if f.get("pixel_source")}
     if pix_sources == {"aws-s3"}:
         pixel_source = "aws-s3"
     elif pix_sources == {"irsa-cutout"}:
         pixel_source = "irsa-cutout"
     elif not pix_sources:
-        pixel_source = None  # older epoch FITS without PIXSRC
+        pixel_source = None
     else:
         pixel_source = "mixed"
 
