@@ -968,6 +968,9 @@ async function start() {
       targetKey: target ? target.key : null,
       queryText: target ? target.label : `${fromUrl.ra.toFixed(5)} ${fromUrl.dec.toFixed(5)}`,
     });
+  } else {
+    const barnard = TARGETS.find((t) => t.key === "barnard");
+    if (barnard) chooseTarget(barnard);
   }
 
   form.addEventListener("submit", (event) => {
