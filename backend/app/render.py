@@ -105,15 +105,7 @@ def frame_for_visit(exposures: list[tuple], mode: str) -> dict:
     }
 
     rel = "DR1" if any("dr1" in im.collection.lower() for im in images) else "QR3" if any("qr3" in im.collection.lower() for im in images) else images[0].collection.replace("spherex_", "").upper()
-    pix_sources = {c.get("pixel_source") for _, c, _ in exposures if c.get("pixel_source")}
-    if pix_sources == {"aws-s3"}:
-        pixel_source = "aws-s3"
-    elif pix_sources == {"irsa-cutout"}:
-        pixel_source = "irsa-cutout"
-    elif len(pix_sources) > 1:
-        pixel_source = "mixed"
-    else:
-        pixel_source = "aws-s3" if getattr(config, "SPHEREX_PIXELS", "cutout") == "s3" else "irsa-cutout"
+    pixel_source = "aws-s3" if getattr(config, "SPHEREX_PIXELS", "cutout") == "s3" else "irsa-cutout"
 
     frame = {
         "picture": picture,
@@ -158,7 +150,7 @@ def save_flags_png(bad: np.ndarray, path: Path) -> None:
 
 
 def save_frame_fits(picture: dict, grid, mjd: float, n_images: int, detector: int, mode: str,
-                    path: Path, pixel_source: str | None = None) -> None:
+                    path: Path) -> None:
     """Value, sigma, flagged and has-value maps on the frames grid (FITS rows: south first)."""
     header = grid.to_header()
     header["BUNIT"] = "MJy/sr"
@@ -166,14 +158,7 @@ def save_frame_fits(picture: dict, grid, mjd: float, n_images: int, detector: in
     header["NIMAGES"] = (n_images, "exposures added")
     header["DETECTOR"] = detector
     header["MODE"] = mode
-    if pixel_source:
-        header["PIXSRC"] = (pixel_source, "Data provenance: aws-s3, irsa-cutout, or mixed")
-
-    prim = fits.PrimaryHDU()
-    if pixel_source:
-        prim.header["PIXSRC"] = (pixel_source, "Data provenance: aws-s3, irsa-cutout, or mixed")
-    prim.header["MJD-AVG"] = (mjd, "mean MJD-AVG of the exposures in this picture")
-    hdus = [prim]
+    hdus = [fits.PrimaryHDU()]
     for name, data, comment in [
         ("IMAGE", picture["image"].astype(np.float32), "IMAGE - ZODI, NaN where no usable value"),
         ("SIGMA", picture["sigma"].astype(np.float32), "1 sigma noise from VARIANCE"),
@@ -236,7 +221,7 @@ def make_frames(key: str, detector: int, mode: str = "coadd", max_per_visit: int
 def render_frames(ra: float, dec: float, key: str, label: str, position_source: str, detector: int,
                   mode: str = "coadd", max_per_visit: int = 8, fov_arcmin: float = 3.0,
                   out_root: Path = DEFAULT_OUT, notes: list[str] | None = None,
-                  stretch: str = "linear") -> dict:
+                  stretch: str = "linear", write_sidecars: bool = True) -> dict:
     """Frames for any position; writes <out_root>/<key>/d<detector>/ and returns the manifest."""
     grid, size = target_grid(ra, dec, fov_arcmin)
     size_deg = cutout_size_deg(fov_arcmin)
@@ -285,7 +270,7 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
         save_png(p["image"], p["covered"], scale, out_dir / png)
         save_flags_png(p["bad"], out_dir / flags_png)
         save_frame_fits(p, grid, round(f["mjd"], 5), f["n_images"], detector, mode,
-                        out_dir / f"epoch{f['epoch_id']}.fits", pixel_source=f.get("pixel_source"))
+                        out_dir / f"epoch{f['epoch_id']}.fits")
         manifest_frames.append({
             "png": png,
             "flags_png": flags_png,
@@ -338,17 +323,20 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
-    try:
-        from backend.app.gaia import write_gaia
-        write_gaia(out_dir)
-    except Exception as exc:
-        print(f"  warning: write_gaia failed: {exc}")
+    # Live API jobs set write_sidecars=False so the flipbook can open as soon as frames exist;
+    # Gaia/WISE then run once in the job pipeline (and skip ESA when IRSA TAP is on cooldown).
+    if write_sidecars:
+        try:
+            from backend.app.gaia import write_gaia
+            write_gaia(out_dir)
+        except Exception as exc:
+            print(f"  warning: write_gaia failed: {exc}")
 
-    try:
-        from backend.app.wise import write_wise
-        write_wise(out_dir)
-    except Exception as exc:
-        print(f"  warning: write_wise failed: {exc}")
+        try:
+            from backend.app.wise import write_wise
+            write_wise(out_dir)
+        except Exception as exc:
+            print(f"  warning: write_wise failed: {exc}")
 
     write_index(Path(out_root))
     print(f"wrote {out_dir}/manifest.json ({len(manifest_frames)} frames, mode {mode})")

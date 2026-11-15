@@ -97,13 +97,33 @@ export function createDiffView({ onPair = () => {} } = {}) {
 
   const indexOf = (epochId) => state.manifest.frames.findIndex((f) => f.epoch_id === epochId);
 
-  function hide(message = "") {
+  const DIFF_HOW =
+    "z = (B − A − sky change) / sqrt(sigma_A² + sigma_B²), sigma from VARIANCE; sky change = " +
+    "median of B − A over pixels usable in both; no z where either visit is flagged or has no value. " +
+    "Orange = brighter in B; blue = fainter in B.";
+
+  function hide(message = "", loaded = null) {
     state = null;
     onPair(null);
     el.box.hidden = !message;
     el.panels.hidden = true;
     el.message.hidden = !message;
     el.message.textContent = message;
+    if (message && loaded?.manifest) {
+      el.summary.textContent = `${loaded.manifest.label} · D${loaded.manifest.band}`;
+      if (el.reason) {
+        el.reason.hidden = false;
+        el.reason.textContent =
+          `How: ${DIFF_HOW} Tip: official targets include these maps at 3′ FOV (prepared frames). ` +
+          `A wider FOV starts a new job that may not have difference maps yet.`;
+      }
+    } else {
+      el.summary.textContent = "";
+      if (el.reason) {
+        el.reason.textContent = "";
+        el.reason.hidden = true;
+      }
+    }
   }
 
   function ring(layer, xy, cls, text) {
@@ -227,20 +247,23 @@ export function createDiffView({ onPair = () => {} } = {}) {
   async function show(loaded) {
     const v = ++version;
     if (!loaded) return hide();
-    if (loaded.manifest.frames.length < 2) return hide("Before / After / Difference needs at least two visits.");
+    if (loaded.manifest.frames.length < 2) {
+      return hide("Before / After / Difference needs at least two visits.", loaded);
+    }
     let diff;
     try {
       diff = await loadExtra(loaded.base, "diff.json");
     } catch (err) {
-      if (v === version) hide(`Could not load the difference maps: ${err.message}`);
+      if (v === version) hide(`Could not load the difference maps: ${err.message}`, loaded);
       return;
     }
     if (v !== version) return;
-    if (!diff) return hide("No difference maps were made for these frames yet.");
+    if (!diff) return hide("No difference maps were made for these frames yet.", loaded);
     state = { ...loaded, diff };
     el.box.hidden = false;
     el.message.hidden = true;
     el.panels.hidden = false;
+    if (el.reason) el.reason.hidden = false;
     el.summary.textContent = `${loaded.manifest.label} · D${loaded.manifest.band}`;
     fillChoices();
     choose(diff.default_pair.a, diff.default_pair.b);

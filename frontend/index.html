@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Blinkit — SPHEREx</title>
   <meta name="description" content="The sky is never the same twice. Flip through SPHEREx visits and see what changed.">
   <link rel="stylesheet" href="css/style.css">
@@ -19,7 +19,7 @@
       <div class="search-with-suggest">
         <input id="query" name="query" type="text" inputmode="text" spellcheck="false"
                class="query-input"
-               placeholder="Search a star, or RA Dec like 269.446 4.768"
+               placeholder="Search star or RA Dec"
                autocomplete="off"
                role="combobox"
                aria-autocomplete="list"
@@ -105,11 +105,16 @@
       <div id="status" class="status status-banner" role="status" aria-live="polite"></div>
 
       <section class="targets-strip" aria-labelledby="targets-title">
-        <header class="targets-strip-head">
-          <h2 id="targets-title" class="targets-strip-title">Official hackathon targets</h2>
-          <p class="targets-strip-lead">Five Space Apps stories—pick one to jump to its patch. Detector chips: <span class="det-legend"><span class="det-chip det-recommended">Best</span> <span class="det-chip det-try">Try</span> <span class="det-chip det-not">Skip</span></span> (hover for why). Ring = opens on that band.</p>
-        </header>
-        <ul id="targets" class="targets targets-row" role="list"></ul>
+        <details class="targets-dropdown" id="targets-dropdown">
+          <summary class="targets-dropdown-summary">
+            <span id="targets-title" class="targets-strip-title">Official hackathon targets</span>
+          </summary>
+          <div class="targets-dropdown-body">
+            <p class="targets-strip-lead">Five Space Apps stories—pick one to jump to its patch. Detector chips: <span class="det-legend"><span class="det-chip det-recommended">Best</span> <span class="det-chip det-try">Try</span> <span class="det-chip det-not">Skip</span></span> (hover for why). Ring = opens on that band.</p>
+            <ul id="targets" class="targets targets-row" role="list"></ul>
+          </div>
+        </details>
+        <p id="target-names" class="targets-name-sub" aria-label="Official target names"></p>
       </section>
 
       <section class="panel flipbook" aria-labelledby="flip-title">
@@ -697,8 +702,7 @@
   </main>
 
   <footer class="site-footer">
-    <p>Data: SPHEREx images from NASA/IPAC Infrared Science Archive (IRSA). Star positions and motions: ESA Gaia DR3 (via IRSA). Background maps: 2MASS, AllWISE and DSS2 (CDS HiPS, served by ESA ESASky). Names: CDS SIMBAD (Harvard mirror). Map: Aladin Lite (CDS).
-      Views are shareable via <code>?ra=&amp;dec=</code> in the URL (Share button). Team Not42 · NASA Space Apps 2026.</p>
+    <p>Developed by Not42 team</p>
   </footer>
 
   <script type="module" src="js/app.js"></script>

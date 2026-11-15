@@ -201,7 +201,7 @@ test("frames come from the API when there is one: ready, working, none, error", 
   resetApiCheck();
   await assert.rejects(
     loadFrames(where, apiFetch({ ...health, [framesQuery(where)]: { status: 502, body: { error: "IRSA did not answer" } } })),
-    /IRSA did not answer/,
+    /IRSA|archive|Blinkit is working/i,
   );
 
   resetApiCheck();

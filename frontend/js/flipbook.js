@@ -5,6 +5,7 @@ import { frameLabel, loadExtra, loadFrames, loadImage, loadIndex, loadSidecar, s
 import {
   BLINK_SPEEDS, DEFAULT_BLINK_SPEED, DEFAULT_SPEED, SPEEDS, defaultBlinkPair, intervalMs, nextIndex, prevIndex,
 } from "./player.js";
+import { publicArchiveMessage, publicWarnings } from "./public_messages.js";
 import { directionText, expectedShift, gaiaTarget, percentAt, pixelUnder, visibleStars } from "./sky.js";
 
 const $ = (id) => document.getElementById(id);
@@ -505,7 +506,8 @@ export function createFlipbook({
           "core), or every exposure flagged that pixel (turn on the flagged-pixel overlay to see which). ") +
       (m.position_source.includes("2026") ? "The dashed ring marks the target's 2026 position. "
         : "The dashed ring marks the centre of the frame. ") +
-      `Made by ${m.made_by}, ${m.made_at}.${sizeNote}`;
+      (m.made_at ? ` Prepared ${m.made_at}.` : "") +
+      sizeNote;
     el.scale.style.width = `${(60 / m.pixel_arcsec / m.size_px) * 100}%`;
     const list = el.cautions.querySelector("ul");
     list.replaceChildren(...(m.notes || []).map((text) => {
@@ -586,7 +588,13 @@ export function createFlipbook({
       fillDiffChoices();
       fillStackChoices();
       describe(m, where.fov);
-      if (result.warnings.length) el.note.textContent += ` Warnings: ${result.warnings.join("; ")}`;
+      const friendly = publicWarnings(result.warnings);
+      if (friendly.length) {
+        const alert = document.createElement("span");
+        alert.className = "flip-note-alert";
+        alert.textContent = ` NASA IRSA is down right now — ${friendly.join(" ")}`;
+        el.note.appendChild(alert);
+      }
       el.gaiaNoteBox.textContent = gaiaNote(gaia, m.pixel_arcsec);
       setMode(mode);
       onFrames({ manifest: m, base: dir, gaia, wise, diff, where });
@@ -596,7 +604,7 @@ export function createFlipbook({
       }
     } catch (err) {
       if (version !== loadVersion) return;
-      showMessage(`Could not load the SPHEREx frames: ${err.message}`);
+      showMessage(`Could not load the SPHEREx frames: ${publicArchiveMessage(err.message)}`);
     }
   }
 

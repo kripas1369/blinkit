@@ -29,7 +29,7 @@ class NoImages(LookupError):
 
 
 def fake_render(calls, error=None):
-    def render_frames(*args):
+    def render_frames(*args, **kwargs):
         calls.append(args)
         if error:
             raise error
@@ -130,7 +130,9 @@ def test_failed_job_is_502(prepared, monkeypatch):
     monkeypatch.setattr(main, "_render", lambda: fake_render([], RuntimeError("IRSA busy")))
     run_now(monkeypatch)
     r = client.get("/api/frames", params={"ra": 10, "dec": 20, "band": 2})
-    assert r.status_code == 502 and "IRSA busy" in r.json()["error"]
+    assert r.status_code == 502
+    err = r.json()["error"].lower()
+    assert "irsa" in err and ("blinkit is working" in err or "archive" in err)
 
 
 def test_finished_job_serves_its_folder(prepared, monkeypatch):
@@ -166,4 +168,12 @@ def test_first_missing_detector_on_a_target_starts_prepare(monkeypatch, tmp_path
 
 def test_pipeline_warnings_persist_on_prepared_frames(prepared):
     main._save_pipeline_warnings(prepared, ["Gaia DR3 markers failed: TAP down"])
-    assert client.get("/api/frames", params={"target": "barnard", "band": 2}).json()["warnings"]
+    warnings = client.get("/api/frames", params={"target": "barnard", "band": 2}).json()["warnings"]
+    assert warnings and "tap/sync" not in warnings[0].lower()
+    assert "irsa" in warnings[0].lower()
+
+
+def test_public_message_hides_raw_tap_errors():
+    msg = main.public_message("Gaia failed: 502 Proxy Error for url: https://irsa.ipac.caltech.edu/TAP/sync")
+    assert "tap/sync" not in msg.lower()
+    assert "blinkit is working" in msg.lower()

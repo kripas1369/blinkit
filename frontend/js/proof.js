@@ -76,9 +76,14 @@ export function dataLines(proof) {
       `looked up at IRSA ${d.asked_irsa_at}.`);
   }
   if (d.releases_reason) lines.push(`Data release${d.releases ? " note" : ": unknown"} (${d.releases_reason}).`);
-  lines.push(`Frames made ${d.frames_made_at}.`);
+  if (d.frames_made_at) lines.push(`Frames prepared ${d.frames_made_at}.`);
   return lines;
 }
+
+const PROOF_HOW =
+  "motion: first to last visit, PNG pixels (+x west, +y south); centroid of the 5 × 5 pixels around Gaia's " +
+  "position, or the centre of the saturated core when the box is not fully usable; rough, because SPHEREx's " +
+  "PSF is about one 6.15″ pixel wide (pixel phase)";
 
 export function createProof() {
   const el = {
@@ -95,11 +100,21 @@ export function createProof() {
     }));
   }
 
-  function hide(message = "") {
+  function hide(message = "", frames = null) {
     el.box.hidden = !message;
     el.body.hidden = true;
     el.message.hidden = !message;
     el.message.textContent = message;
+    if (message && frames?.manifest) {
+      el.summary.textContent = `${frames.manifest.label} · D${frames.manifest.band}`;
+      el.method.hidden = false;
+      el.method.textContent =
+        `How: ${PROOF_HOW}. Tip: official targets show this panel at 3′ FOV (prepared frames). ` +
+        `Wider FOV builds a new cutout that may not include proof yet.`;
+    } else {
+      el.summary.textContent = "";
+      el.method.textContent = "";
+    }
   }
 
   /** Proof for frames that were just shown ({ manifest, base }), or hide (null). */
@@ -110,11 +125,11 @@ export function createProof() {
     try {
       proof = await loadExtra(frames.base, "proof.json");
     } catch (err) {
-      if (v === version) hide(`Could not load the proof panel: ${err.message}`);
+      if (v === version) hide(`Could not load the proof panel: ${err.message}`, frames);
       return;
     }
     if (v !== version) return;
-    if (!proof) return hide("No proof panel was made for these frames yet.");
+    if (!proof) return hide("No proof panel was made for these frames yet.", frames);
     const { verdict, lines } = motionText(proof);
     el.box.hidden = false;
     el.message.hidden = true;
@@ -124,7 +139,8 @@ export function createProof() {
     el.verdict.dataset.status = proof.motion.status;
     fill(el.motion, lines);
     fill(el.data, dataLines(proof));
-    el.method.textContent = `How: ${proof.method}.`;
+    el.method.hidden = false;
+    el.method.textContent = `How: ${proof.method || PROOF_HOW}.`;
   }
 
   hide();

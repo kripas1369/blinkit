@@ -279,8 +279,16 @@ function renderSurveys() {
   surveySelect.innerHTML = SURVEYS.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
 }
 
+function openTargetsCatalog() {
+  const dropdown = $("targets-dropdown");
+  if (dropdown) dropdown.open = true;
+}
+
 function renderTargets() {
   targetsBox.innerHTML = "";
+  const namesBox = $("target-names");
+  if (namesBox) namesBox.innerHTML = "";
+
   for (const target of TARGETS) {
     const item = document.createElement("li");
     const button = document.createElement("button");
@@ -296,12 +304,29 @@ function renderTargets() {
     button.addEventListener("click", () => chooseTarget(target));
     item.appendChild(button);
     targetsBox.appendChild(item);
+
+    if (namesBox) {
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "targets-name-link";
+      link.dataset.key = target.key;
+      link.setAttribute("aria-pressed", "false");
+      link.textContent = target.label;
+      link.addEventListener("click", () => {
+        chooseTarget(target);
+        openTargetsCatalog();
+      });
+      namesBox.appendChild(link);
+    }
   }
 }
 
 function renderSelection() {
   for (const button of targetsBox.querySelectorAll(".target")) {
     button.setAttribute("aria-pressed", String(button.dataset.key === state.targetKey));
+  }
+  for (const link of document.querySelectorAll(".targets-name-link")) {
+    link.setAttribute("aria-pressed", String(link.dataset.key === state.targetKey));
   }
   renderDetectors();
   shareButton.disabled = state.ra === null;

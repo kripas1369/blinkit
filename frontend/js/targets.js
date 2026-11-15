@@ -5,7 +5,7 @@ export const RATINGS = {
   not: "Not recommended",
 };
 
-const GAIA_EMPTY = "Frames ready; Gaia overlay empty (IRSA/ESA catalogues timed out — re-run write_gaia).";
+const GAIA_EMPTY = "Frames ready; Gaia overlay empty (NASA IRSA catalogue busy — not a Blinkit outage).";
 
 export const TARGETS = [
   {

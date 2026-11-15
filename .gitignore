@@ -37,8 +37,9 @@ frontend/frames/
 frontend/lab/data/
 *.zip
 
+# VPS pack output (includes frames; rebuild with scripts/pack_vps.sh)
+dist/
+
 # Logs
 *.log
 npm-debug.log*
-# Local planning notes — not for GitHub
-hold.md

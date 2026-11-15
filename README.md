@@ -54,6 +54,10 @@ uvicorn backend.app.main:app --port 8000
 
 Static-only (no live jobs): `cd frontend && python3 -m http.server 8000` — only folders that exist under `frontend/frames/` work.
 
+## Host on a VPS
+
+See **[docs/HOSTING.md](docs/HOSTING.md)**. Use `uvicorn … --host 0.0.0.0 --workers 1` behind Nginx. Official targets stay local/fast; if NASA IRSA is down, visitors see a short “archive side” note — not raw 502/TAP URLs.
+
 ## Test
 
 ```bash

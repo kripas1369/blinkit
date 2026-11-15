@@ -1,6 +1,8 @@
 // Load and check SPHEREx frames (format: docs/plan/FRAMES_FORMAT.md): from the data API
 // (backend/app/main.py) when the site is served by it, otherwise the prepared files in frontend/frames/.
 
+import { publicArchiveMessage, publicWarnings } from "./public_messages.js";
+
 export const FRAMES_ROOT = "frames";
 export const FORMAT = "spherex-blink-frames/1";
 export const PREPARED_FOV = 3;
@@ -210,11 +212,20 @@ async function askFrames(url, fetchFn) {
     throw new FramesUnavailable("Could not reach the data API");
   }
   const body = await resp.json().catch(() => ({}));
-  if (resp.status === 202) return { status: "working", message: body.message || "Preparing the frames…" };
-  if (resp.status === 404) return { status: "none", message: body.error || "No SPHEREx frames here" };
-  if (!resp.ok) throw new FramesUnavailable(body.error || `The data API answered HTTP ${resp.status}`);
+  if (resp.status === 202) {
+    return { status: "working", message: publicArchiveMessage(body.message || "Preparing the frames…") };
+  }
+  if (resp.status === 404) {
+    return { status: "none", message: publicArchiveMessage(body.error || "No SPHEREx frames here") };
+  }
+  if (!resp.ok) {
+    throw new FramesUnavailable(publicArchiveMessage(body.error || `The data API answered HTTP ${resp.status}`));
+  }
   return {
-    status: "ready", manifest: checkManifest(body), base: body.base_url.replace(/\/$/, ""), warnings: body.warnings || [],
+    status: "ready",
+    manifest: checkManifest(body),
+    base: body.base_url.replace(/\/$/, ""),
+    warnings: publicWarnings(body.warnings || []),
   };
 }
 

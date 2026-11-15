@@ -18,6 +18,8 @@ SPHEREx images come from NASA IRSA (search) and IRSA's public AWS copy (pixels),
 import importlib
 import json
 import math
+import os
+import re
 import threading
 import time
 import traceback
@@ -50,18 +52,54 @@ JOBS_DIR = CACHE_DIR / "frames"
 POSITION_YEAR = 2026.0   # SIMBAD positions are moved to this date, like the frames
 PREPARED_FOV = 3.0
 SAME_TARGET_ARCSEC = 5.0
-JOB_EXPOSURES_PER_VISIT = 4   # fewer than the prepared frames (8): each cutout is ~5 MB
+JOB_EXPOSURES_PER_VISIT = 3   # fewer than prepared (8): cutouts are ~5 MB; 3 keeps visits usable and faster
 COVERAGE_CACHE_SECONDS = 3600
 FAILED_JOB_RETRY_SECONDS = 600
 PIPELINE_WARNINGS_FILE = "pipeline_warnings.txt"
 
-app = FastAPI(title="Blinkit API", docs_url="/api/docs", openapi_url="/api/openapi.json")
+_DOCS = None if os.environ.get("BLINKIT_DISABLE_DOCS", "").lower() in {"1", "true", "yes"} else "/api/docs"
+app = FastAPI(
+    title="Blinkit API",
+    docs_url=_DOCS,
+    openapi_url=None if _DOCS is None else "/api/openapi.json",
+)
 _coverage_cache: dict[tuple, tuple[float, dict]] = {}
+
+_ARCHIVE_PUBLIC = (
+    "NASA’s IRSA archive did not answer (or timed out). Blinkit is working — this is on IRSA’s side, "
+    "not our server. Try again in a few minutes."
+)
+_OVERLAY_PUBLIC = (
+    "Star-catalogue overlays (Gaia / WISE) are incomplete right now because NASA IRSA did not answer. "
+    "The flipbook still works; try overlays again later."
+)
+
+
+def public_message(raw: str, *, overlay: bool = False) -> str:
+    """Rewrite raw TAP/502 archive failures into visitor-safe copy; leave other errors alone."""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    low = text.lower()
+    if any(k in low for k in ("irsa", "tap", "502", "proxy error", "timed out", "timeout",
+                              "esa gaia", "catwise", "archiveerror")):
+        return _OVERLAY_PUBLIC if overlay else _ARCHIVE_PUBLIC
+    return text
+
+
+def public_warnings(raw: list[str]) -> list[str]:
+    out: list[str] = []
+    for item in raw or []:
+        overlay = bool(re.search(r"gaia|wise|catwise|marker", str(item), re.I))
+        msg = public_message(item, overlay=overlay)
+        if msg and msg not in out:
+            out.append(msg)
+    return out
 
 
 class ApiError(Exception):
     def __init__(self, status: int, message: str):
-        self.status, self.message = status, message
+        self.status, self.message = status, public_message(message)
 
 
 class Working(Exception):
@@ -190,17 +228,27 @@ def _finish(job: dict, run: Callable[[], None], render: ModuleType) -> None:
 
 
 def _run_job(loc: dict, render: ModuleType) -> None:
+    """Build SPHEREx frames, open the flipbook as soon as they exist, then finish overlays."""
     job = _jobs[str(loc["folder"])]
-
-    def run():
+    try:
         job["stage"] = "downloading SPHEREx images and adding up each visit"
-        render.render_frames(loc["ra"], loc["dec"], loc["key"], f"RA {loc['ra']:.4f}° Dec {loc['dec']:+.4f}°",
-                             "typed position, rounded to 0.0001° (not moved for proper motion)", loc["band"],
-                             "coadd", JOB_EXPOSURES_PER_VISIT, loc["fov"], JOBS_DIR)
+        render.render_frames(
+            loc["ra"], loc["dec"], loc["key"], f"RA {loc['ra']:.4f}° Dec {loc['dec']:+.4f}°",
+            "typed position, rounded to 0.0001° (not moved for proper motion)", loc["band"],
+            "coadd", JOB_EXPOSURES_PER_VISIT, loc["fov"], JOBS_DIR,
+            write_sidecars=False,
+        )
+        # Flipbook only needs the visit PNGs + manifest — do not wait on Gaia/WISE/proof.
+        job.update(status="ready", stage="frames ready; finishing overlays")
+        job["stage"] = "building difference maps and overlays"
         job["warnings"].extend(_pipeline_after_render(loc["folder"]))
         _save_pipeline_warnings(loc["folder"], job["warnings"])
-
-    _finish(job, run, render)
+        job["stage"] = "done"
+    except render.NoImages as exc:
+        job.update(status="none", error=str(exc))
+    except Exception as exc:
+        job.update(status="failed", error=f"{exc.__class__.__name__}: {exc}", failed_at=time.time())
+        traceback.print_exc()
 
 
 def _run_official_prepare(loc: dict, render: ModuleType) -> None:
@@ -227,7 +275,7 @@ def job_status(loc: dict) -> dict:
             job = None
         if job is None:
             if (folder / "manifest.json").exists():
-                return {"status": "ready", "warnings": _load_pipeline_warnings(folder)}
+                return {"status": "ready", "warnings": public_warnings(_load_pipeline_warnings(folder))}
             render = _render()
             job = {"status": "working", "stage": "waiting for the previous job", "warnings": [],
                    "started_at": datetime.now(timezone.utc).strftime("%H:%M UTC")}
@@ -237,18 +285,18 @@ def job_status(loc: dict) -> dict:
 
 
 def ensure_ready(loc: dict) -> list[str]:
-    """Raise the right answer unless the folder is ready; returns warnings."""
+    """Raise the right answer unless the folder is ready; returns visitor-safe warnings."""
     if loc["kind"] == "prepared":
-        return _load_pipeline_warnings(loc["folder"])
+        return public_warnings(_load_pipeline_warnings(loc["folder"]))
     job = job_status(loc)
     if job["status"] == "working":
         raise Working(f"Preparing SPHEREx frames for this position (started {job['started_at']}): "
-                      f"{job['stage']}. This takes a few minutes.")
+                      f"{job['stage']}. Flipbook opens as soon as the visit images are ready.")
     if job["status"] == "none":
         raise ApiError(404, job["error"])
     if job["status"] == "failed":
         raise ApiError(502, f"Could not prepare the frames: {job['error']}")
-    return job["warnings"]
+    return public_warnings(job.get("warnings") or [])
 
 
 def _read(loc: dict, name: str, what: str) -> dict:

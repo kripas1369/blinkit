@@ -86,6 +86,9 @@ def gaia_stars(ra: float, dec: float, radius_deg: float) -> list[dict]:
             WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
         """)
     except archive.ArchiveError as irsa_error:
+        # TAP cooldown means IRSA just failed hard; ESA often hangs ~60s and blocks the job queue.
+        if "not retried for a few minutes" in str(irsa_error):
+            raise
         print(f"  warning: IRSA Gaia failed ({irsa_error}); trying ESA Gaia archive")
         try:
             table = _gaia_from_esa(ra, dec, radius_deg)
