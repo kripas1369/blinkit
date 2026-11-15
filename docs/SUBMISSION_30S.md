@@ -4,6 +4,24 @@
 **Site:** https://blinkit.study  
 **Speak time:** ~25–28 seconds · ~70 words · calm, clear pace
 
+## Project Demonstration (Space Apps form)
+
+You need **one** public link: either a **≤30 s video** or a **≤7 slide** deck.
+
+### Option A — Slides (ready now, 6 slides)
+
+After VPS `git pull` + restart:
+
+**https://blinkit.study/demo.html**
+
+(Backup while VPS updates: open `frontend/demo.html` from the repo, or host the same file on Google Drive / Dropbox as a public link.)
+
+### Option B — Video (best for Global Award judges)
+
+1. Record your screen for **≤30 s** on https://blinkit.study (use the script below).  
+2. Upload to **YouTube** (Unlisted or Public) or Google Drive (Anyone with the link).  
+3. Paste the full URL in the form, e.g. `https://youtu.be/…` or `https://drive.google.com/file/d/…/view`
+
 ---
 
 ## Script (say this)
