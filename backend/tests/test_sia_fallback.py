@@ -1,4 +1,4 @@
-"""When IRSA TAP is down: the image search falls back to IRSA SIA, then to the last saved list."""
+"""Image search prefers IRSA SIA, then TAP, then the last saved list."""
 import io
 import json
 import time
@@ -56,12 +56,16 @@ def fake_sia(answers: dict, calls: list | None = None):
     return get
 
 
-def test_tap_down_uses_sia_and_keeps_paths_and_s3_keys(monkeypatch, no_sleep):
-    monkeypatch.setattr(archive, "_run", tap_down)
+def test_sia_is_the_main_source_and_tap_is_not_asked(monkeypatch, no_sleep):
     monkeypatch.setattr(archive.requests, "get", fake_sia({
         "spherex_dr1": [(502, b"Proxy Error"), (200, sia_votable("spherex_dr1", [2, 3]))],
         "spherex_qr3": [(200, sia_votable("spherex_qr3", [2]))],
     }))
+
+    def tap_called(query):
+        raise AssertionError("TAP is only the fallback")
+    monkeypatch.setattr(archive, "_run", tap_called)
+
     images = find_images(RA, DEC, collections=("spherex_dr1", "spherex_qr3"), detector=2)
     assert [im.collection for im in images] == ["spherex_dr1", "spherex_qr3"]
     assert all(im.detector == 2 for im in images)
@@ -82,45 +86,72 @@ def tap_answer(collection: str, detector: int):
     return lambda query: table
 
 
-def test_tap_is_the_main_source_and_sia_is_not_asked(monkeypatch):
+def test_sia_down_uses_tap(monkeypatch, no_sleep):
+    monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(502, b"Proxy Error")]}))
     monkeypatch.setattr(archive, "_run", tap_answer("spherex_dr1", 2))
-
-    def sia_called(*a, **k):
-        raise AssertionError("SIA is only the fallback")
-    monkeypatch.setattr(archive.requests, "get", sia_called)
     images = find_images(RA, DEC, collections=("spherex_dr1",))
     assert [im.s3_key for im in images] == ["dr1/tap.fits"]
     saved = json.loads(next(archive.IMAGE_LIST_DIR.glob("*.json")).read_text())
     assert saved["source"] == "tap" and saved["complete"] is True
 
 
-def test_tap_is_asked_first_even_with_a_saved_list(monkeypatch, no_sleep):
-    monkeypatch.setattr(archive, "_run", tap_down)
-    monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(200, sia_votable("spherex_dr1", [2]))]}))
+def test_sia_is_asked_first_even_with_a_saved_list(monkeypatch, no_sleep):
+    monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(502, b"Proxy Error")]}))
+    monkeypatch.setattr(archive, "_run", tap_answer("spherex_dr1", 2))
     find_images(RA, DEC, collections=("spherex_dr1",))
 
-    monkeypatch.setattr(archive, "_run", tap_answer("spherex_dr1", 2))
-    images = find_images(RA, DEC, collections=("spherex_dr1",))
-    assert [im.s3_key for im in images] == ["dr1/tap.fits"]
-
-
-def test_sia_answer_missing_a_release_is_used_and_marked_incomplete(monkeypatch, no_sleep):
+    monkeypatch.setattr(archive.requests, "get", fake_sia({
+        "spherex_dr1": [(200, sia_votable("spherex_dr1", [2]))],
+    }))
     monkeypatch.setattr(archive, "_run", tap_down)
+    images = find_images(RA, DEC, collections=("spherex_dr1",))
+    assert images[0].s3_key.endswith("1D2_spx.fits")
+    saved = json.loads(next(archive.IMAGE_LIST_DIR.glob("*.json")).read_text())
+    assert saved["source"] == "sia"
+
+
+def test_sia_incomplete_falls_back_to_tap(monkeypatch, no_sleep):
     calls = []
     monkeypatch.setattr(archive.requests, "get", fake_sia({
         "spherex_dr1": [(502, b"Proxy Error")],
         "spherex_qr3": [(200, sia_votable("spherex_qr3", [2]))],
     }, calls))
+    monkeypatch.setattr(archive, "_run", tap_answer("spherex_dr1", 2))
     images = find_images(RA, DEC, collections=("spherex_dr1", "spherex_qr3"))
-    assert [im.collection for im in images] == ["spherex_qr3"]
+    assert [im.s3_key for im in images] == ["dr1/tap.fits"]
     assert calls.count("spherex_dr1") == archive.SIA_TRIES
     saved = json.loads(next(archive.IMAGE_LIST_DIR.glob("*.json")).read_text())
-    assert saved["complete"] is False
+    assert saved["source"] == "tap" and saved["complete"] is True
+
+
+def test_sia_incomplete_and_tap_down_keeps_partial_sia(monkeypatch, no_sleep):
+    monkeypatch.setattr(archive.requests, "get", fake_sia({
+        "spherex_dr1": [(502, b"Proxy Error")],
+        "spherex_qr3": [(200, sia_votable("spherex_qr3", [2]))],
+    }))
+    monkeypatch.setattr(archive, "_run", tap_down)
+    images = find_images(RA, DEC, collections=("spherex_dr1", "spherex_qr3"))
+    assert [im.collection for im in images] == ["spherex_qr3"]
+    saved = json.loads(next(archive.IMAGE_LIST_DIR.glob("*.json")).read_text())
+    assert saved["source"] == "sia" and saved["complete"] is False
+
+
+def test_stale_incomplete_saved_list_is_not_reused(monkeypatch, no_sleep):
+    path = archive._image_list_file(RA, DEC, ("spherex_dr1",), None)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "saved_at": time.time() - (archive.IMAGE_LIST_INCOMPLETE_MAX_AGE_HOURS + 1) * 3600,
+        "source": "sia", "complete": False, "images": [],
+    }))
+    monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(502, b"Proxy Error")]}))
+    monkeypatch.setattr(archive, "_run", tap_down)
+    with pytest.raises(ArchiveError, match="partial list"):
+        find_images(RA, DEC, collections=("spherex_dr1",))
 
 
 def test_everything_down_uses_old_saved_list(monkeypatch, no_sleep):
-    monkeypatch.setattr(archive, "_run", tap_down)
     monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(200, sia_votable("spherex_dr1", [4]))]}))
+    monkeypatch.setattr(archive, "_run", tap_down)
     first = find_images(RA, DEC, collections=("spherex_dr1",))
     path = next(archive.IMAGE_LIST_DIR.glob("*.json"))
     saved = json.loads(path.read_text())
@@ -132,9 +163,9 @@ def test_everything_down_uses_old_saved_list(monkeypatch, no_sleep):
 
 
 def test_everything_down_and_nothing_saved_raises(monkeypatch, no_sleep):
-    monkeypatch.setattr(archive, "_run", tap_down)
     monkeypatch.setattr(archive.requests, "get", fake_sia({"spherex_dr1": [(502, b"Proxy Error")]}))
-    with pytest.raises(ArchiveError, match="TAP.*SIA"):
+    monkeypatch.setattr(archive, "_run", tap_down)
+    with pytest.raises(ArchiveError, match="SIA.*TAP"):
         find_images(RA, DEC, collections=("spherex_dr1",))
 
 

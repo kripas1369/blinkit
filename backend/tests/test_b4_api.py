@@ -30,6 +30,7 @@ def prepared(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "PREPARED_DIR", tmp_path / "frames")
     monkeypatch.setattr(main, "JOBS_DIR", tmp_path / "jobs")
     monkeypatch.setattr(main, "_jobs", {})
+    monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: None))
     return folder
 
 
@@ -50,7 +51,7 @@ def test_diff_and_proof_endpoints(prepared):
     assert d["minus_median"]["median_png_url"].endswith("median.png")
     p = client.get("/api/proof", params={"target": "barnard", "band": 2}).json()
     assert p["motion"]["status"] == "agrees"
-    assert client.get("/api/diff", params={"target": "barnard", "band": 3}).status_code == 404
+    assert client.get("/api/diff", params={"target": "barnard", "band": 3}).status_code == 202
 
 
 def test_stack_returns_saved_file_and_remakes_for_a_subset(prepared, monkeypatch):

@@ -53,6 +53,7 @@ SAME_TARGET_ARCSEC = 5.0
 JOB_EXPOSURES_PER_VISIT = 4   # fewer than the prepared frames (8): each cutout is ~5 MB
 COVERAGE_CACHE_SECONDS = 3600
 FAILED_JOB_RETRY_SECONDS = 600
+PIPELINE_WARNINGS_FILE = "pipeline_warnings.txt"
 
 app = FastAPI(title="Blinkit API", docs_url="/api/docs", openapi_url="/api/openapi.json")
 _coverage_cache: dict[tuple, tuple[float, dict]] = {}
@@ -106,14 +107,8 @@ def locate(target: str | None, ra: float | None, dec: float | None, band: int, f
                                 + ", ".join(t["key"] for t in OFFICIAL_TARGETS))
         folder = PREPARED_DIR / target / f"d{band}"
         if not (folder / "manifest.json").exists():
-            prepared = sorted(int(p.name[1:]) for p in (PREPARED_DIR / target).glob("d*")
-                              if (p / "manifest.json").exists())
-            if len(prepared) >= 2:
-                return {"kind": "official_prepare", "key": target, "band": band, "folder": folder,
-                        "url": f"/frames/{target}/d{band}/"}
-            raise ApiError(404, f"No prepared frames for {target} in D{band}; prepared detectors: "
-                                + (", ".join(f"D{d}" for d in prepared) or "none")
-                                + f". Make them with: python -m backend.app.render {target} {band}.")
+            return {"kind": "official_prepare", "key": target, "band": band, "folder": folder,
+                    "url": f"/frames/{target}/d{band}/"}
         return {"kind": "prepared", "key": target, "folder": folder, "url": f"/frames/{target}/d{band}/"}
     if ra is None or dec is None:
         raise ApiError(400, "Give either target= or both ra= and dec=")
@@ -168,6 +163,21 @@ def _pipeline_after_render(folder: Path) -> list[str]:
     return warnings
 
 
+def _save_pipeline_warnings(folder: Path, warnings: list[str]) -> None:
+    path = folder / PIPELINE_WARNINGS_FILE
+    if warnings:
+        path.write_text("\n".join(warnings) + "\n")
+    elif path.exists():
+        path.unlink()
+
+
+def _load_pipeline_warnings(folder: Path) -> list[str]:
+    path = folder / PIPELINE_WARNINGS_FILE
+    if not path.exists():
+        return []
+    return [line for line in path.read_text().splitlines() if line.strip()]
+
+
 def _finish(job: dict, run: Callable[[], None], render: ModuleType) -> None:
     try:
         run()
@@ -188,6 +198,7 @@ def _run_job(loc: dict, render: ModuleType) -> None:
                              "typed position, rounded to 0.0001° (not moved for proper motion)", loc["band"],
                              "coadd", JOB_EXPOSURES_PER_VISIT, loc["fov"], JOBS_DIR)
         job["warnings"].extend(_pipeline_after_render(loc["folder"]))
+        _save_pipeline_warnings(loc["folder"], job["warnings"])
 
     _finish(job, run, render)
 
@@ -201,6 +212,7 @@ def _run_official_prepare(loc: dict, render: ModuleType) -> None:
         loc["folder"].parent.mkdir(parents=True, exist_ok=True)
         render.make_frames(loc["key"], loc["band"])
         job["warnings"].extend(_pipeline_after_render(loc["folder"]))
+        _save_pipeline_warnings(loc["folder"], job["warnings"])
         render.write_index(PREPARED_DIR)
 
     _finish(job, run, render)
@@ -215,7 +227,7 @@ def job_status(loc: dict) -> dict:
             job = None
         if job is None:
             if (folder / "manifest.json").exists():
-                return {"status": "ready", "warnings": []}
+                return {"status": "ready", "warnings": _load_pipeline_warnings(folder)}
             render = _render()
             job = {"status": "working", "stage": "waiting for the previous job", "warnings": [],
                    "started_at": datetime.now(timezone.utc).strftime("%H:%M UTC")}
@@ -227,7 +239,7 @@ def job_status(loc: dict) -> dict:
 def ensure_ready(loc: dict) -> list[str]:
     """Raise the right answer unless the folder is ready; returns warnings."""
     if loc["kind"] == "prepared":
-        return []
+        return _load_pipeline_warnings(loc["folder"])
     job = job_status(loc)
     if job["status"] == "working":
         raise Working(f"Preparing SPHEREx frames for this position (started {job['started_at']}): "

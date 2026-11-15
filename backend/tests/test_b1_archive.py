@@ -37,7 +37,13 @@ def test_discover_collections_filters_cal_and_non_spherex(monkeypatch):
     assert "wise_allwise" not in cols
 
 
+def _sia_down(*_a, **_k):
+    raise archive.ArchiveError("SIA down")
+
+
 def test_find_images_returns_s3_key_from_cloud_access(monkeypatch):
+    # Force the TAP path so cloud_access parsing is exercised (SIA is preferred first).
+    monkeypatch.setattr(archive, "_find_images_sia", _sia_down)
     fake_cloud_access = '{"aws": {"bucket_name": "nasa-irsa-spherex", "key": "dr1/level2/test_epoch.fits"}}'
     fake_table = Table({
         "obs_id": ["2025W33_1A_0001_1"],
@@ -61,6 +67,7 @@ def test_find_images_returns_s3_key_from_cloud_access(monkeypatch):
 
 
 def test_find_images_falls_back_to_sia2_when_cloud_access_empty(monkeypatch):
+    monkeypatch.setattr(archive, "_find_images_sia", _sia_down)
     fake_table = Table({
         "obs_id": ["2025W33_1A_0001_1"],
         "obs_publisher_did": ["ivo://irsa.ipac/spherex?dr1/level2/test_epoch.fits"],

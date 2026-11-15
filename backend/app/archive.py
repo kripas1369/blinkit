@@ -53,15 +53,16 @@ _IRSA_CUTOUT_SEMAPHORE = threading.Semaphore(MAX_PARALLEL_DOWNLOADS)
 # A position search answers in seconds; 300 s per try let one silent IRSA block the job worker ~20 min.
 TAP_TIMEOUT_SECONDS = 90
 
-# When TAP fails, the same search goes to IRSA's SIA service, which on 14 Nov 2026 answered about half
-# the requests while TAP answered almost none. Quick tries beat long waits when failures are instant 502s.
+# Image search prefers SIA: on 15 Nov 2026 it answered in ~1–2 s while TAP was slow (30–50 s) or timing out.
+# TAP is still used when SIA fails or misses a release, and for Gaia/CatWISE (no SIA equivalent).
 SIA_TRIES = 8
 SIA_TIMEOUT_SECONDS = 45
 SIA_DEADLINE_SECONDS = 120   # per collection, however many tries are left
 SIA_RADIUS_DEG = 0.0003      # ~1 arcsec: "the footprint contains the point", like the TAP search
 
-# Every answered search is saved: the last resort when both TAP and SIA fail for that position.
+# Every answered search is saved: the last resort when both SIA and TAP fail for that position.
 IMAGE_LIST_DIR = CACHE_DIR / "image_lists"
+IMAGE_LIST_INCOMPLETE_MAX_AGE_HOURS = 48  # do not reuse a partial list after this
 
 
 class _TimedSession(requests.Session):
@@ -320,26 +321,44 @@ def find_images(
     `detector` limits the search to one detector; for crowded deep fields (R Dra: 2,483 images)
     the full search timed out on 31 Oct while the one-detector search answered in 13 s.
 
-    Order: IRSA TAP (the main source), then IRSA SIA if TAP fails, then the last saved answer if both
-    fail. Raises ArchiveError only when all three fail.
+    Order: IRSA SIA (fast path), then IRSA TAP if SIA fails or misses a release, then the last saved
+    answer if both fail. Raises ArchiveError only when all three fail.
     """
     saved_file = _image_list_file(ra, dec, collections, detector)
+    sia_images: list[SpherexImage] | None = None
+    sia_error: ArchiveError | None = None
+    try:
+        images, answered = _find_images_sia(ra, dec, collections, detector)
+        complete = len(answered) == len(collections)
+        if complete:
+            _save_image_list(saved_file, images, "sia", complete=True)
+            return sorted(images, key=lambda im: (im.mjd, im.detector))
+        sia_images = images
+        print(f"  warning: SIA search incomplete ({', '.join(answered)} only); trying IRSA TAP")
+    except ArchiveError as exc:
+        sia_error = exc
+        print(f"  warning: {exc}; trying IRSA TAP")
+
     try:
         images = _find_images_tap(ra, dec, collections, detector)
         _save_image_list(saved_file, images, "tap", complete=True)
     except ArchiveError as tap_error:
-        print(f"  warning: {tap_error}; trying IRSA SIA")
-        try:
-            images, answered = _find_images_sia(ra, dec, collections, detector)
-            _save_image_list(saved_file, images, "sia", complete=len(answered) == len(collections))
-        except ArchiveError as sia_error:
-            saved = _load_image_list(saved_file)
-            if not saved:
-                raise ArchiveError(f"{tap_error}; {sia_error}") from sia_error
-            age_h = (time.time() - saved["saved_at"]) / 3600
-            partial = "" if saved["complete"] else ", from a search where not every release answered"
-            print(f"  warning: IRSA TAP and SIA failed; using the image list saved {age_h:.0f} h ago{partial}")
-            images = saved["images"]
+        if sia_images is not None:
+            _save_image_list(saved_file, sia_images, "sia", complete=False)
+            return sorted(sia_images, key=lambda im: (im.mjd, im.detector))
+        saved = _load_image_list(saved_file)
+        if not saved:
+            detail = f"{sia_error}; {tap_error}" if sia_error else str(tap_error)
+            raise ArchiveError(detail) from tap_error
+        age_h = (time.time() - saved["saved_at"]) / 3600
+        if not saved["complete"] and age_h > IMAGE_LIST_INCOMPLETE_MAX_AGE_HOURS:
+            raise ArchiveError(
+                f"IRSA SIA and TAP failed; saved partial list is {age_h:.0f} h old "
+                f"(max {IMAGE_LIST_INCOMPLETE_MAX_AGE_HOURS} h)"
+            ) from tap_error
+        partial = "" if saved["complete"] else ", from a search where not every release answered"
+        print(f"  warning: IRSA SIA and TAP failed; using the image list saved {age_h:.0f} h ago{partial}")
+        images = saved["images"]
     return sorted(images, key=lambda im: (im.mjd, im.detector))
 
 

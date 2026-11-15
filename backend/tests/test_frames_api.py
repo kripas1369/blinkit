@@ -46,6 +46,7 @@ def prepared(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "PREPARED_DIR", tmp_path / "frames")
     monkeypatch.setattr(main, "JOBS_DIR", tmp_path / "jobs")
     monkeypatch.setattr(main, "_jobs", {})
+    monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: None))
     return folder
 
 
@@ -66,7 +67,7 @@ def test_gaia_and_wise_sidecars(prepared):
     (prepared / "wise.json").write_text(json.dumps({**sidecar, "format": "spherex-blink-wise/1"}))
     assert client.get("/api/gaia", params={"target": "barnard", "band": 2}).json()["format"].startswith("spherex-blink-gaia")
     assert client.get("/api/wise", params={"target": "barnard", "band": 2}).json()["format"].startswith("spherex-blink-wise")
-    assert client.get("/api/gaia", params={"target": "barnard", "band": 3}).status_code == 404
+    assert client.get("/api/gaia", params={"target": "barnard", "band": 3}).status_code == 202
 
 
 def test_prepared_target_has_image_urls(prepared):
@@ -86,7 +87,6 @@ def test_position_within_5_arcsec_of_a_target_uses_its_prepared_frames(prepared)
 
 @pytest.mark.parametrize("params,status", [
     ({"target": "pluto", "band": 2}, 404),
-    ({"target": "barnard", "band": 5}, 404),
     ({"target": "barnard", "band": 9}, 400),
     ({"band": 2}, 400),
     ({"ra": 400, "dec": 0, "band": 2}, 400),
@@ -151,3 +151,19 @@ def test_missing_detector_of_a_target_with_two_prepared_starts_a_download(prepar
     monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: None))
     r = client.get("/api/frames", params={"target": "barnard", "band": 5})
     assert r.status_code == 202 and "preparing" in r.json()["message"].lower()
+
+
+def test_first_missing_detector_on_a_target_starts_prepare(monkeypatch, tmp_path):
+    (tmp_path / "frames" / "wise0855").mkdir(parents=True)
+    monkeypatch.setattr(main, "PREPARED_DIR", tmp_path / "frames")
+    monkeypatch.setattr(main, "JOBS_DIR", tmp_path / "jobs")
+    monkeypatch.setattr(main, "_jobs", {})
+    monkeypatch.setattr(main, "_render", lambda: fake_render([]))
+    monkeypatch.setattr(main, "_pool", SimpleNamespace(submit=lambda f, *a: None))
+    r = client.get("/api/frames", params={"target": "wise0855", "band": 6})
+    assert r.status_code == 202 and r.json()["status"] == "working"
+
+
+def test_pipeline_warnings_persist_on_prepared_frames(prepared):
+    main._save_pipeline_warnings(prepared, ["Gaia DR3 markers failed: TAP down"])
+    assert client.get("/api/frames", params={"target": "barnard", "band": 2}).json()["warnings"]
