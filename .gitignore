@@ -43,3 +43,5 @@ dist/
 # Logs
 *.log
 npm-debug.log*
+# Local notes — never commit
+hold.md

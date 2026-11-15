@@ -7,11 +7,10 @@
     "Each deep_Di mixes the ~17 LVF channels of that detector \u2014 not a single spectral channel.",
     "Peak-anchored aperture can follow a smear lobe for fast movers; flipbook owns motion.",
     "Lab spectrum is visualization only; IRSA Spectrophotometry Tool is for science spectra.",
-    "Not the DR1 All-Sky Cube (102 planes); that is lab Option B (see RESEARCH_HOLD.md)."
+    "Not the DR1 All-Sky Cube (102 planes); Six Eyes is a 6-detector deep stack for visualization only."
   ],
   "references": [
-    "docs/RESEARCH_HOLD.md",
-    "frontend/lab/METHODOLOGY.md",
+    "docs/WHAT_WE_BUILT.md",
     "IRSA SPHEREx data products / All-Sky Cube docs"
   ],
   "ra": 133.75976461144327,

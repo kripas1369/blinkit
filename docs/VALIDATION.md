@@ -13,7 +13,7 @@ SIA2 queries give valid public AWS S3 keys for all level-2 images, readable dire
 - `spherex_qr2` is no longer in `config.COLLECTIONS` (IRSA listing checked 13 Nov 2026); a QR2-only search at the Barnard position returns **0 rows** (expected).
 - `SPHEREX_COLLECTIONS` env override is tested in `test_b1_archive.py`.
 - `archive.releases()` backs `GET /api/releases` (Kripas B1).
-- Post–Phase 1: live search prefers **SIA** then TAP (`archive.find_images`), see `PHASE1_STATUS.md`.
+- Live search prefers **SIA** then TAP (`archive.find_images`). See [PIPELINE.md](PIPELINE.md).
 
 ## 2. Visit Stacking and Cleaning (B2 Part A)
 

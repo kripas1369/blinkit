@@ -4,8 +4,8 @@ Builds per-detector deep coadds (inverse-variance stack of visit epochs) for one
 target, extracts a coarse 6-point aperture spectrum at the cutout centre, and
 writes everything under frontend/lab/data/<target>/ for frontend/lab/six_eyes.html.
 
-Method notes: frontend/lab/METHODOLOGY.md and docs/RESEARCH_HOLD.md.
-Does not modify frontend/js/app.js. Do not push until reviewed.
+Writes under frontend/frames/<target>/six_eyes/ for the Six Eyes panel.
+Does not modify frontend/js/app.js.
 """
 from __future__ import annotations
 
@@ -190,11 +190,10 @@ def build_target(key: str, detectors: list[int], aperture_radius: float) -> dict
             "Each deep_Di mixes the ~17 LVF channels of that detector — not a single spectral channel.",
             "Peak-anchored aperture can follow a smear lobe for fast movers; flipbook owns motion.",
             "Lab spectrum is visualization only; IRSA Spectrophotometry Tool is for science spectra.",
-            "Not the DR1 All-Sky Cube (102 planes); that is lab Option B (see RESEARCH_HOLD.md).",
+            "Not the DR1 All-Sky Cube (102 planes); Six Eyes is a 6-detector deep stack for visualization only.",
         ],
         "references": [
-            "docs/RESEARCH_HOLD.md",
-            "frontend/lab/METHODOLOGY.md",
+            "docs/WHAT_WE_BUILT.md",
             "IRSA SPHEREx data products / All-Sky Cube docs",
         ],
         "ra": None,
