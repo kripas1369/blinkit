@@ -12,42 +12,32 @@ Hosting on a VPS does **not** break the app. Official targets stay fast (local f
 
 ## 2. Install
 
-### Option A — recommended upload pack (includes official frames)
+### Option A — GitHub only (recommended)
 
-On your laptop (in the Blinkit repo):
+Official frames are in the repo. On the VPS:
+
+```bash
+git clone -b phase1-complete https://github.com/kripas1369/blinkit.git /opt/blinkit
+cd /opt/blinkit
+bash scripts/vps_git_setup.sh
+certbot --nginx -d blinkit.study -d www.blinkit.study
+```
+
+Or one shot (after the script is on `phase1-complete`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kripas1369/blinkit/phase1-complete/scripts/vps_git_setup.sh | bash
+certbot --nginx -d blinkit.study -d www.blinkit.study
+```
+
+### Option B — upload pack (optional)
 
 ```bash
 bash scripts/pack_vps.sh
-# → dist/blinkit-vps-YYYYMMDD.tar.gz  (~code + frontend/frames/, no cache/.venv)
 scp dist/blinkit-vps-*.tar.gz user@YOUR_VPS:~/
 ```
 
-On the VPS:
-
-```bash
-tar -xzf blinkit-vps-*.tar.gz
-cd blinkit-vps-*
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-mkdir -p cache
-# Follow DEPLOY.txt in the unpack folder
-```
-
-`frontend/frames/` is gitignored, so a plain `git clone` alone will **not** ship Barnard's Star. The pack script copies those ~10 MB of prepared targets.
-
-### Option B — git + copy frames
-
-```bash
-git clone <your-repo-url> blinkit
-cd blinkit
-# copy frames from your machine:
-#   rsync -av frontend/frames/ user@YOUR_VPS:/path/to/blinkit/frontend/frames/
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-mkdir -p cache
-```
+Then unpack under `/opt/blinkit` and follow `DEPLOY.txt`.
 
 ## 3. Run (production)
 
