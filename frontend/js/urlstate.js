@@ -15,6 +15,7 @@ export const DETECTORS = {
 export const MODES = {
   flip: "the flipbook",
   blink: "blink two visits",
+  composite: "color composite",
   diff: "difference",
   stack: "add visits",
   minus: "minus median",

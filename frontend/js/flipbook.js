@@ -1,4 +1,5 @@
-// The SPHEREx flipbook panel: images (play/blink), minus-median, add visits, or difference.
+// The SPHEREx flipbook panel: images (play/blink), color composite, minus-median, add visits, or difference.
+import { buildCompositeFromManifest } from "./composite.js";
 import { findPair, pairFacts } from "./diffview.js";
 import { flagLegendHtml } from "./flags_legend.js";
 import { frameLabel, loadExtra, loadFrames, loadImage, loadIndex, loadSidecar, spanDays } from "./frames.js";
@@ -108,9 +109,12 @@ export function createFlipbook({
     summary: $("flip-summary"), label: $("flip-label"), note: $("flip-note"), cautions: $("flip-cautions"),
     prev: $("flip-prev"), play: $("flip-play"), next: $("flip-next"), slider: $("flip-slider"),
     position: $("flip-position"), speed: $("flip-speed"), loop: $("flip-loop"), showFlags: $("flip-show-flags"),
-    modeImages: $("mode-images"), modeMinus: $("mode-minus"), modeStack: $("mode-stack"), modeDiff: $("mode-diff"),
-    imagesControls: $("images-controls"), minusControls: $("minus-controls"),
+    modeImages: $("mode-images"), modeComposite: $("mode-composite"), modeMinus: $("mode-minus"),
+    modeStack: $("mode-stack"), modeDiff: $("mode-diff"),
+    imagesControls: $("images-controls"), compositeControls: $("composite-controls"),
+    minusControls: $("minus-controls"),
     stackControls: $("stack-controls"), diffControls: $("diff-controls"),
+    compositeFacts: $("composite-facts"),
     modePlay: $("mode-play"), modeBlink: $("mode-blink"), playControls: $("play-controls"),
     blinkControls: $("blink-controls"), blinkA: $("blink-a"), blinkB: $("blink-b"),
     blinkToggle: $("blink-toggle"), blinkSpeed: $("blink-speed"),
@@ -140,15 +144,18 @@ export function createFlipbook({
   let folder = "";
   let index = 0;
   let timer = null;
-  // Top-level modes match urlstate: flip|blink|minus|stack|diff. "play" is the Images/Play sub-mode of flip.
+  // Top-level modes match urlstate: flip|blink|composite|minus|stack|diff. "play" is Images/Play.
   let mode = view.mode === "blink" ? "blink"
-    : view.mode === "minus" ? "minus"
-      : view.mode === "stack" ? "stack"
-        : view.mode === "diff" ? "diff" : "flip";
+    : view.mode === "composite" ? "composite"
+      : view.mode === "minus" ? "minus"
+        : view.mode === "stack" ? "stack"
+          : view.mode === "diff" ? "diff" : "flip";
   let blinkShowingA = true;
   let loadVersion = 0;
   let available = null;
   let stackChosen = null; // epoch_id list, or null = all
+  let compositeUrl = null;
+  let compositeBuild = 0;
   // Frames start moving by themselves, except for people whose system asks for less motion.
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -330,8 +337,63 @@ export function createFlipbook({
     if (el.flipDiffFacts) el.flipDiffFacts.textContent = pairFacts(pair, fa, fb);
   }
 
+  async function renderComposite() {
+    if (!manifest || count() < 2) {
+      el.img.hidden = true;
+      el.flags.hidden = true;
+      el.gaia.hidden = true;
+      if (el.wise) el.wise.hidden = true;
+      if (el.flagLegend) el.flagLegend.hidden = true;
+      el.label.textContent = "Need at least two visits for a color composite.";
+      if (el.compositeFacts) el.compositeFacts.textContent = "";
+      return;
+    }
+    const buildId = ++compositeBuild;
+    el.flags.hidden = true;
+    el.gaia.hidden = true;
+    if (el.wise) el.wise.hidden = true;
+    if (el.flagLegend) el.flagLegend.hidden = true;
+    el.label.textContent = "Building color composite…";
+    if (el.compositeFacts) el.compositeFacts.textContent = "";
+    try {
+      const built = await buildCompositeFromManifest(manifest, folder);
+      if (buildId !== compositeBuild || mode !== "composite") return;
+      if (!built?.canvas) {
+        el.img.hidden = true;
+        el.label.textContent = "Could not build a color composite from these visits.";
+        return;
+      }
+      if (compositeUrl) URL.revokeObjectURL(compositeUrl);
+      compositeUrl = built.canvas.toDataURL("image/png");
+      el.img.hidden = false;
+      el.img.src = compositeUrl;
+      el.img.alt = `Color composite of ${manifest.label}, D${manifest.band}`;
+      const { pick } = built;
+      const date = (f) => (f.date_iso || "").slice(0, 10);
+      if (pick.twoEpoch) {
+        el.label.textContent = `Color composite · 2 visits · cyan = ${date(pick.first)} · red = ${date(pick.last)}`;
+        if (el.compositeFacts) {
+          el.compositeFacts.textContent =
+            "Two visits: earliest → cyan, latest → red. A mover leaves a cyan trail and appears as a red dot.";
+        }
+      } else {
+        el.label.textContent =
+          `Color composite · blue ${date(pick.first)} · green ${date(pick.middle)} · red ${date(pick.last)}`;
+        if (el.compositeFacts) {
+          el.compositeFacts.textContent =
+            "Earliest visit → blue channel, middle → green, latest → red. White/grey = same in all visits.";
+        }
+      }
+    } catch (err) {
+      if (buildId !== compositeBuild) return;
+      el.img.hidden = true;
+      el.label.textContent = `Color composite failed: ${err.message || err}`;
+    }
+  }
+
   function render(i = index) {
     if (!manifest) return;
+    if (mode === "composite") return renderComposite();
     if (mode === "minus") return renderMinus(i);
     if (mode === "stack") return renderStack();
     if (mode === "diff") return renderDiffPair();
@@ -339,7 +401,7 @@ export function createFlipbook({
   }
 
   function step(direction) {
-    if (mode === "stack" || mode === "diff") return;
+    if (mode === "stack" || mode === "diff" || mode === "composite") return;
     const loop = mode === "minus" ? true : el.loop.checked;
     const n = direction > 0 ? nextIndex(index, count(), loop) : prevIndex(index, count(), loop);
     if (n === null) {
@@ -385,15 +447,18 @@ export function createFlipbook({
     mode = next;
     const top = {
       images: isImages(),
+      composite: mode === "composite",
       minus: mode === "minus",
       stack: mode === "stack",
       diff: mode === "diff",
     };
     el.modeImages.setAttribute("aria-selected", String(top.images));
+    el.modeComposite?.setAttribute("aria-selected", String(top.composite));
     el.modeMinus.setAttribute("aria-selected", String(top.minus));
     el.modeStack.setAttribute("aria-selected", String(top.stack));
     el.modeDiff.setAttribute("aria-selected", String(top.diff));
     el.imagesControls.hidden = !top.images;
+    if (el.compositeControls) el.compositeControls.hidden = !top.composite;
     el.minusControls.hidden = !top.minus;
     el.stackControls.hidden = !top.stack;
     el.diffControls.hidden = !top.diff;
@@ -584,6 +649,7 @@ export function createFlipbook({
       el.modeMinus.disabled = !(diff && diff.minus_median?.frames?.length);
       el.modeDiff.disabled = !(diff && diff.pairs?.length);
       el.modeStack.disabled = count() < 1;
+      if (el.modeComposite) el.modeComposite.disabled = count() < 2;
       fillBlinkChoices();
       fillDiffChoices();
       fillStackChoices();
@@ -626,6 +692,10 @@ export function createFlipbook({
   el.modeImages.addEventListener("click", () => {
     setMode("flip");
     onView({ mode: "flip", a: null, b: null });
+  });
+  el.modeComposite?.addEventListener("click", () => {
+    setMode("composite");
+    onView({ mode: "composite", a: null, b: null });
   });
   el.modeMinus.addEventListener("click", () => {
     setMode("minus");

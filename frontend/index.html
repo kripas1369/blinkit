@@ -149,6 +149,7 @@
 
             <div class="flip-modes" role="tablist" aria-label="Flipbook mode">
               <button type="button" role="tab" id="mode-images" class="tab" aria-selected="true" aria-controls="images-controls">Images</button>
+              <button type="button" role="tab" id="mode-composite" class="tab" aria-selected="false" aria-controls="composite-controls">Color</button>
               <button type="button" role="tab" id="mode-minus" class="tab" aria-selected="false" aria-controls="minus-controls">Minus median</button>
               <button type="button" role="tab" id="mode-stack" class="tab" aria-selected="false" aria-controls="stack-controls">Add visits</button>
               <button type="button" role="tab" id="mode-diff" class="tab" aria-selected="false" aria-controls="diff-controls">Difference</button>
@@ -183,6 +184,17 @@
                 </div>
                 <p class="help">Like Clyde Tombaugh in 1930: two pictures of the same sky swap quickly, and anything that moved or changed jumps out.</p>
               </div>
+            </div>
+
+            <div id="composite-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-composite" hidden>
+              <p class="help">WiseView-style color composite from the visit PNGs (no server). Stationary stars look white/grey; movers tint by when they appear.</p>
+              <div class="composite-legend" aria-label="Color composite legend">
+                <span class="comp-blue">Blue</span> earliest
+                <span class="comp-green">Green</span> middle
+                <span class="comp-red">Red</span> latest
+                <span class="comp-white">White</span> stationary
+              </div>
+              <p id="composite-facts" class="help" aria-live="polite"></p>
             </div>
 
             <div id="minus-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-minus" hidden>
