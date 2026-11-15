@@ -40,6 +40,15 @@ def load_visit_frame(fits_path: Path) -> dict:
     }
 
 
+def stack_names(visits: list[int] | None, all_ids: list[int]) -> tuple[str, str, str]:
+    """File names for a stack. The full visit list keeps stack.*; a subset uses stack_0_2.* so it
+    does not overwrite the default all-visits stack."""
+    if visits is None or list(visits) == list(all_ids):
+        return "stack.fits", "stack.png", "stack.json"
+    tag = "_".join(str(v) for v in visits)
+    return f"stack_{tag}.fits", f"stack_{tag}.png", f"stack_{tag}.json"
+
+
 def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
     """Stack visit frames (epoch<i>.fits) with 1/variance weights."""
     manifest_path = folder / "manifest.json"
@@ -47,11 +56,14 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
         raise FileNotFoundError(f"No manifest.json in {folder}")
     manifest = json.loads(manifest_path.read_text())
 
-    frames = manifest["frames"]
+    all_frames = manifest["frames"]
+    all_ids = [f["epoch_id"] for f in all_frames]
+    frames = all_frames
     if visits is not None:
-        frames = [f for f in frames if f["epoch_id"] in visits]
+        frames = [f for f in all_frames if f["epoch_id"] in visits]
     if not frames:
         raise ValueError(f"No matching visits to stack in {folder}")
+    fits_name, png_name, json_name = stack_names(visits, all_ids)
 
     loaded = [load_visit_frame(folder / f["fits"]) for f in frames]
     coadded = coadd(loaded)
@@ -83,7 +95,6 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
         else ("irsa-cutout" if pix_sources == {"irsa-cutout"} else "mixed")
     )
 
-    # Save stack.fits
     save_frame_fits(
         coadded,
         grid_wcs,
@@ -91,14 +102,11 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
         total_images,
         detector,
         "stack",
-        folder / "stack.fits",
+        folder / fits_name,
         pixel_source=pixel_source,
     )
+    save_png(coadded["image"], coadded["covered"], manifest["scale"], folder / png_name)
 
-    # Save stack.png
-    save_png(coadded["image"], coadded["covered"], manifest["scale"], folder / "stack.png")
-
-    # Save stack.json
     chosen_visits = [f["epoch_id"] for f in frames]
     result = {
         "format": FORMAT,
@@ -111,8 +119,10 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
         "single_visit_noise": round(median_single_sigma, 4),
         "noise_ratio_vs_single_visit": noise_ratio,
         "unit": "MJy/sr",
+        "fits": fits_name,
+        "png": png_name,
     }
-    (folder / "stack.json").write_text(json.dumps(result, indent=2) + "\n")
+    (folder / json_name).write_text(json.dumps(result, indent=2) + "\n")
     return result
 
 

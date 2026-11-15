@@ -1,7 +1,9 @@
 import { matchCatalog } from "./catalog.js";
 import { formatDec, formatRa, looksLikeName, parseCoordinates, parseField, splitPastedPair } from "./coords.js";
+import { createDiffView } from "./diffview.js";
 import { createFlipbook } from "./flipbook.js";
 import { positionAt, separationArcsec, VIEW_EPOCH } from "./motion.js";
+import { createProof } from "./proof.js";
 import { NameNotFound, resolveName } from "./resolve.js";
 import { detectorsRated, RATINGS, TARGETS } from "./targets.js";
 import { createTimeline } from "./timeline.js";
@@ -70,6 +72,8 @@ let coordUnit = "deg";
 let coordTimer = null;
 let flipbook = null;
 let timeline = null;
+let diffView = null;
+let proofView = null;
 let mapCatalogs = { gaia: null, wise: null };
 
 function setStatus(message, kind = "info") {
@@ -756,9 +760,15 @@ async function start() {
   loadDataReleases();
   if (fromUrl.problems.length) setStatus(fromUrl.problems.join(" "), "warn");
   timeline = createTimeline({ onDetector: setDetector });
+  diffView = createDiffView();
+  proofView = createProof();
   flipbook = createFlipbook({
     onDetector: setDetector,
-    onFrames: (loaded) => timeline.markFrames(loaded),
+    onFrames: (loaded) => {
+      timeline.markFrames(loaded);
+      diffView.show(loaded);
+      proofView.show(loaded);
+    },
     view: state,
     onView: (changes) => {
       Object.assign(state, changes);

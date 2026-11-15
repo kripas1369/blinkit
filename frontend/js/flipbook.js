@@ -1,6 +1,7 @@
-// The SPHEREx flipbook panel: play through visits, or blink two of them, with Gaia markers.
+// The SPHEREx flipbook panel: images (play/blink), minus-median, add visits, or difference.
+import { findPair, pairFacts } from "./diffview.js";
 import { flagLegendHtml } from "./flags_legend.js";
-import { frameLabel, loadFrames, loadImage, loadIndex, loadSidecar, spanDays } from "./frames.js";
+import { frameLabel, loadExtra, loadFrames, loadImage, loadIndex, loadSidecar, spanDays } from "./frames.js";
 import {
   BLINK_SPEEDS, DEFAULT_BLINK_SPEED, DEFAULT_SPEED, SPEEDS, defaultBlinkPair, intervalMs, nextIndex, prevIndex,
 } from "./player.js";
@@ -93,7 +94,7 @@ function fillSpeeds(select, speeds, chosen) {
  * `onPixel({ x, y })`: the user clicked a pixel of the frame (PNG pixels, 0 = first).
  * `onVisit(i)`: frame `i` is now on screen.
  * `view`: the link's starting view ({ mode, a, b, gaia, flags, speed } from urlstate.js).
- * `onView(changes)`: the user changed one of those keys (mode "flip" or "blink"; a and b are null unless blinking).
+ * `onView(changes)`: the user changed one of those keys (mode flip|blink|minus|stack|diff; a/b for blink/diff).
  */
 export function createFlipbook({
   onDetector, onFrames = () => {}, onPixel = () => {}, onVisit = () => {}, view = {}, onView = () => {},
@@ -106,9 +107,16 @@ export function createFlipbook({
     summary: $("flip-summary"), label: $("flip-label"), note: $("flip-note"), cautions: $("flip-cautions"),
     prev: $("flip-prev"), play: $("flip-play"), next: $("flip-next"), slider: $("flip-slider"),
     position: $("flip-position"), speed: $("flip-speed"), loop: $("flip-loop"), showFlags: $("flip-show-flags"),
+    modeImages: $("mode-images"), modeMinus: $("mode-minus"), modeStack: $("mode-stack"), modeDiff: $("mode-diff"),
+    imagesControls: $("images-controls"), minusControls: $("minus-controls"),
+    stackControls: $("stack-controls"), diffControls: $("diff-controls"),
     modePlay: $("mode-play"), modeBlink: $("mode-blink"), playControls: $("play-controls"),
     blinkControls: $("blink-controls"), blinkA: $("blink-a"), blinkB: $("blink-b"),
     blinkToggle: $("blink-toggle"), blinkSpeed: $("blink-speed"),
+    minusSlider: $("minus-slider"), minusPosition: $("minus-position"),
+    stackList: $("stack-visit-list"), stackNoise: $("stack-noise"),
+    flipDiffA: $("flip-diff-a"), flipDiffB: $("flip-diff-b"), flipDiffDefault: $("flip-diff-default"),
+    flipDiffFacts: $("flip-diff-facts"),
     overlays: document.querySelectorAll(".flip-target, .flip-compass, .flip-scale"),
     scale: document.querySelector(".flip-scale"),
   };
@@ -125,18 +133,26 @@ export function createFlipbook({
   let wantedPair = Number.isInteger(view.a) && Number.isInteger(view.b) ? [view.a, view.b] : null;
   let gaia = null;
   let wise = null;
+  let diff = null;
+  let stack = null;
   let pollTimer = null;
   let folder = "";
   let index = 0;
   let timer = null;
-  let mode = "play";
+  // Top-level modes match urlstate: flip|blink|minus|stack|diff. "play" is the Images/Play sub-mode of flip.
+  let mode = view.mode === "blink" ? "blink"
+    : view.mode === "minus" ? "minus"
+      : view.mode === "stack" ? "stack"
+        : view.mode === "diff" ? "diff" : "flip";
   let blinkShowingA = true;
   let loadVersion = 0;
   let available = null;
+  let stackChosen = null; // epoch_id list, or null = all
   // Frames start moving by themselves, except for people whose system asks for less motion.
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const count = () => (manifest ? manifest.frames.length : 0);
+  const isImages = () => mode === "flip" || mode === "blink";
 
   function stop() {
     clearInterval(timer);
@@ -148,9 +164,13 @@ export function createFlipbook({
 
   function setControlsEnabled(on) {
     for (const c of [el.prev, el.play, el.next, el.slider, el.speed, el.loop, el.blinkA, el.blinkB,
-      el.blinkToggle, el.blinkSpeed, el.showFlags]) c.disabled = !on;
-    el.showGaia.disabled = el.gaiaMag.disabled = !(on && gaia);
-    if (el.showWise) el.showWise.disabled = !(on && wise);
+      el.blinkToggle, el.blinkSpeed, el.showFlags, el.minusSlider, el.flipDiffA, el.flipDiffB,
+      el.flipDiffDefault]) {
+      if (c) c.disabled = !on;
+    }
+    el.showGaia.disabled = el.gaiaMag.disabled = !(on && gaia && isImages());
+    if (el.showWise) el.showWise.disabled = !(on && wise && isImages());
+    for (const box of el.stackList?.querySelectorAll("input") || []) box.disabled = !on;
   }
 
   const gaiaLimit = () => (el.gaiaMag.value === "all" ? null : Number(el.gaiaMag.value));
@@ -189,6 +209,8 @@ export function createFlipbook({
     manifest = null;
     gaia = null;
     wise = null;
+    diff = null;
+    stack = null;
     el.gaia.hidden = true;
     if (el.wise) el.wise.hidden = true;
     if (el.flagLegend) {
@@ -217,7 +239,7 @@ export function createFlipbook({
     setControlsEnabled(false);
   }
 
-  function render(i) {
+  function renderImageVisit(i) {
     index = i;
     const frame = manifest.frames[i];
     el.img.src = `${folder}/${frame.png}`;
@@ -233,8 +255,92 @@ export function createFlipbook({
     onVisit(i);
   }
 
+  function renderMinus(i) {
+    index = i;
+    const frame = manifest.frames[i];
+    const mm = diff?.minus_median?.frames?.find((f) => f.epoch_id === frame.epoch_id);
+    el.flags.hidden = true;
+    el.gaia.hidden = true;
+    if (el.wise) el.wise.hidden = true;
+    if (el.flagLegend) el.flagLegend.hidden = true;
+    if (!mm) {
+      el.img.hidden = true;
+      el.label.textContent = `Visit ${i + 1}: no minus-median frame was made yet.`;
+    } else {
+      el.img.hidden = false;
+      el.img.src = `${folder}/${mm.png}`;
+      el.img.alt = `Visit ${i + 1} minus the median of all visits`;
+      el.label.textContent = `Visit ${i + 1} of ${count()} · ${frame.date_iso} · minus median` +
+        (mm.sky_change != null ? ` · sky offset ${mm.sky_change >= 0 ? "+" : ""}${mm.sky_change} MJy/sr removed` : "");
+    }
+    if (el.minusSlider) {
+      el.minusSlider.value = String(i);
+      el.minusPosition.textContent = `${i + 1} of ${count()}`;
+    }
+    onVisit(i);
+  }
+
+  function renderStack() {
+    el.flags.hidden = true;
+    el.gaia.hidden = true;
+    if (el.wise) el.wise.hidden = true;
+    if (el.flagLegend) el.flagLegend.hidden = true;
+    if (!stack) {
+      el.img.hidden = true;
+      el.label.textContent = "No stacked image yet.";
+      if (el.stackNoise) el.stackNoise.textContent = "";
+      return;
+    }
+    el.img.hidden = false;
+    el.img.src = stack.png_url || `${folder}/stack.png`;
+    el.img.alt = `Stack of ${stack.n_visits} visits of ${manifest.label}`;
+    el.label.textContent = `Add visits · ${stack.n_visits} visit${stack.n_visits === 1 ? "" : "s"} · ` +
+      `${stack.n_images} exposures · noise ${stack.noise_ratio_vs_single_visit}× lower than one visit`;
+    if (el.stackNoise) {
+      el.stackNoise.textContent = `Noise per pixel ${stack.noise_per_pixel} ${stack.unit || "MJy/sr"} ` +
+        `(single visit ${stack.single_visit_noise}); gain ${stack.noise_ratio_vs_single_visit}× ` +
+        `(theory about ${Math.sqrt(stack.n_visits).toFixed(2)}× for ${stack.n_visits} independent visits).`;
+    }
+  }
+
+  function renderDiffPair() {
+    el.flags.hidden = true;
+    el.gaia.hidden = true;
+    if (el.wise) el.wise.hidden = true;
+    if (el.flagLegend) el.flagLegend.hidden = true;
+    const a = Number(el.flipDiffA.value);
+    const b = Number(el.flipDiffB.value);
+    const pair = diff ? findPair(diff, a, b) : null;
+    const ia = manifest.frames.findIndex((f) => f.epoch_id === a);
+    const ib = manifest.frames.findIndex((f) => f.epoch_id === b);
+    if (!pair || ia < 0 || ib < 0) {
+      el.img.hidden = true;
+      el.label.textContent = "No difference map for this visit pair.";
+      if (el.flipDiffFacts) el.flipDiffFacts.textContent = "";
+      return;
+    }
+    el.img.hidden = false;
+    el.img.src = `${folder}/${pair.png}`;
+    el.img.alt = `Difference visit ${a} to ${b}`;
+    const fa = manifest.frames[ia];
+    const fb = manifest.frames[ib];
+    el.label.textContent = `Difference · A visit ${ia + 1} (${fa.date_iso.slice(0, 10)}) → ` +
+      `B visit ${ib + 1} (${fb.date_iso.slice(0, 10)}) · strongest +${pair.max_sigma}σ / ${pair.min_sigma}σ`;
+    if (el.flipDiffFacts) el.flipDiffFacts.textContent = pairFacts(pair, fa, fb);
+  }
+
+  function render(i = index) {
+    if (!manifest) return;
+    if (mode === "minus") return renderMinus(i);
+    if (mode === "stack") return renderStack();
+    if (mode === "diff") return renderDiffPair();
+    renderImageVisit(i);
+  }
+
   function step(direction) {
-    const n = direction > 0 ? nextIndex(index, count(), el.loop.checked) : prevIndex(index, count(), el.loop.checked);
+    if (mode === "stack" || mode === "diff") return;
+    const loop = mode === "minus" ? true : el.loop.checked;
+    const n = direction > 0 ? nextIndex(index, count(), loop) : prevIndex(index, count(), loop);
     if (n === null) {
       stop();
       return;
@@ -244,6 +350,7 @@ export function createFlipbook({
 
   function togglePlay() {
     if (timer) return stop();
+    if (mode !== "flip") setMode("flip");
     if (!el.loop.checked && index === count() - 1) render(0);
     timer = setInterval(() => step(1), intervalMs(Number(el.speed.value)));
     el.play.textContent = "Pause";
@@ -261,6 +368,7 @@ export function createFlipbook({
 
   function toggleBlink() {
     if (timer) return stop();
+    if (mode !== "blink") setMode("blink");
     const [a, b] = blinkPair();
     blinkShowingA = true;
     render(a);
@@ -274,17 +382,38 @@ export function createFlipbook({
   function setMode(next) {
     stop();
     mode = next;
-    el.modePlay.setAttribute("aria-selected", String(mode === "play"));
+    const top = {
+      images: isImages(),
+      minus: mode === "minus",
+      stack: mode === "stack",
+      diff: mode === "diff",
+    };
+    el.modeImages.setAttribute("aria-selected", String(top.images));
+    el.modeMinus.setAttribute("aria-selected", String(top.minus));
+    el.modeStack.setAttribute("aria-selected", String(top.stack));
+    el.modeDiff.setAttribute("aria-selected", String(top.diff));
+    el.imagesControls.hidden = !top.images;
+    el.minusControls.hidden = !top.minus;
+    el.stackControls.hidden = !top.stack;
+    el.diffControls.hidden = !top.diff;
+    el.modePlay.setAttribute("aria-selected", String(mode === "flip"));
     el.modeBlink.setAttribute("aria-selected", String(mode === "blink"));
-    el.playControls.hidden = mode !== "play";
+    el.playControls.hidden = mode !== "flip";
     el.blinkControls.hidden = mode !== "blink";
-    if (manifest) render(mode === "blink" ? blinkPair()[0] : index);
+    el.showGaia.disabled = el.gaiaMag.disabled = !(manifest && gaia && isImages());
+    if (el.showWise) el.showWise.disabled = !(manifest && wise && isImages());
+    if (manifest) {
+      if (mode === "blink") render(blinkPair()[0]);
+      else if (mode === "stack") loadStack();
+      else render(index);
+    }
   }
 
   function restartIfRunning() {
     if (!timer) return;
     stop();
-    if (mode === "play") togglePlay(); else toggleBlink();
+    if (mode === "flip") togglePlay();
+    else if (mode === "blink") toggleBlink();
   }
 
   function fillBlinkChoices() {
@@ -295,6 +424,66 @@ export function createFlipbook({
     const [a, b] = wantedPair && wantedPair.every((i) => i < count()) ? wantedPair : defaultBlinkPair(count());
     el.blinkA.value = String(a);
     el.blinkB.value = String(b);
+  }
+
+  function fillDiffChoices() {
+    if (!el.flipDiffA || !diff) return;
+    const options = manifest.frames
+      .map((f, i) => `<option value="${f.epoch_id}">${i + 1}: ${f.date_iso.slice(0, 10)}</option>`).join("");
+    el.flipDiffA.innerHTML = options;
+    el.flipDiffB.innerHTML = options;
+    const def = diff.default_pair;
+    const useWanted = wantedPair
+      && manifest.frames.some((f) => f.epoch_id === wantedPair[0])
+      && manifest.frames.some((f) => f.epoch_id === wantedPair[1]);
+    el.flipDiffA.value = String(useWanted ? wantedPair[0] : def.a);
+    el.flipDiffB.value = String(useWanted ? wantedPair[1] : def.b);
+  }
+
+  function fillStackChoices() {
+    if (!el.stackList) return;
+    const chosen = new Set(stackChosen ?? manifest.frames.map((f) => f.epoch_id));
+    el.stackList.replaceChildren(...manifest.frames.map((f, i) => {
+      const label = document.createElement("label");
+      label.className = "check";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.value = String(f.epoch_id);
+      box.checked = chosen.has(f.epoch_id);
+      box.addEventListener("change", () => {
+        const ids = [...el.stackList.querySelectorAll("input:checked")].map((b) => Number(b.value));
+        stackChosen = ids.length ? ids : null;
+        loadStack();
+      });
+      label.append(box, document.createTextNode(` Visit ${i + 1}: ${f.date_iso.slice(0, 10)}`));
+      return label;
+    }));
+  }
+
+  async function loadStack() {
+    if (!manifest) return;
+    const params = new URLSearchParams();
+    if (manifest.target && !String(folder).includes("jobframes")) {
+      params.set("target", manifest.target);
+    } else {
+      params.set("ra", String(manifest.ra));
+      params.set("dec", String(manifest.dec));
+    }
+    params.set("band", String(manifest.band));
+    if (stackChosen && stackChosen.length) params.set("visits", stackChosen.join(","));
+    try {
+      const resp = await fetch(`/api/stack?${params}`, { cache: "no-cache" });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${resp.status}`);
+      }
+      stack = await resp.json();
+      if (!stack.png_url) stack.png_url = `${folder}/${stack.png || "stack.png"}`;
+    } catch (err) {
+      stack = null;
+      if (el.stackNoise) el.stackNoise.textContent = `Could not load the stack: ${err.message}`;
+    }
+    if (mode === "stack") renderStack();
   }
 
   function describe(m, fov) {
@@ -369,30 +558,42 @@ export function createFlipbook({
       }
       const m = result.manifest;
       const dir = result.base;
-      const [extraGaia, extraWise] = await Promise.all([
+      const [extraGaia, extraWise, extraDiff] = await Promise.all([
         loadSidecar(where, "gaia", dir).catch(() => null),
         loadSidecar(where, "wise", dir).catch(() => null),
+        loadExtra(dir, "diff.json").catch(() => null),
         ...m.frames.flatMap((f) => [f.png, f.flags_png].filter(Boolean).map((p) => loadImage(`${dir}/${p}`))),
       ]);
       if (version !== loadVersion) return;
       manifest = m;
       gaia = extraGaia && extraGaia.frames?.length === m.frames.length ? extraGaia : null;
       wise = extraWise && extraWise.frames?.length === m.frames.length ? extraWise : null;
+      diff = extraDiff;
+      stack = null;
+      stackChosen = null;
       folder = dir;
       el.message.hidden = true;
       el.img.hidden = false;
       el.overlays.forEach((o) => { o.hidden = false; });
       el.slider.max = String(count() - 1);
+      if (el.minusSlider) el.minusSlider.max = String(count() - 1);
       setControlsEnabled(true);
       el.blinkA.disabled = el.blinkB.disabled = el.blinkToggle.disabled = count() < 2;
+      el.modeMinus.disabled = !(diff && diff.minus_median?.frames?.length);
+      el.modeDiff.disabled = !(diff && diff.pairs?.length);
+      el.modeStack.disabled = count() < 1;
       fillBlinkChoices();
+      fillDiffChoices();
+      fillStackChoices();
       describe(m, where.fov);
       if (result.warnings.length) el.note.textContent += ` Warnings: ${result.warnings.join("; ")}`;
       el.gaiaNoteBox.textContent = gaiaNote(gaia, m.pixel_arcsec);
-      render(mode === "blink" ? blinkPair()[0] : 0);
-      onFrames({ manifest: m, base: dir, gaia, wise, where });
+      setMode(mode);
+      onFrames({ manifest: m, base: dir, gaia, wise, diff, where });
       renderDetBar(where.det);
-      if (count() > 1 && !reduceMotion.matches) (mode === "play" ? togglePlay : toggleBlink)();
+      if (count() > 1 && !reduceMotion.matches && isImages()) {
+        (mode === "blink" ? toggleBlink : togglePlay)();
+      }
     } catch (err) {
       if (version !== loadVersion) return;
       showMessage(`Could not load the SPHEREx frames: ${err.message}`);
@@ -411,13 +612,60 @@ export function createFlipbook({
       stop();
       render(blinkPair()[side]);
       wantedPair = blinkPair();
-      onView(pairView());
+      onView({ mode: "blink", ...pairView() });
     });
   }
-  el.modePlay.addEventListener("click", () => { setMode("play"); onView({ mode: "flip", a: null, b: null }); });
+  el.modeImages.addEventListener("click", () => {
+    setMode("flip");
+    onView({ mode: "flip", a: null, b: null });
+  });
+  el.modeMinus.addEventListener("click", () => {
+    setMode("minus");
+    onView({ mode: "minus", a: null, b: null });
+  });
+  el.modeStack.addEventListener("click", () => {
+    setMode("stack");
+    onView({ mode: "stack", a: null, b: null });
+  });
+  el.modeDiff.addEventListener("click", () => {
+    setMode("diff");
+    const a = Number(el.flipDiffA?.value);
+    const b = Number(el.flipDiffB?.value);
+    onView({ mode: "diff", a: Number.isInteger(a) ? a : null, b: Number.isInteger(b) ? b : null });
+  });
+  el.modePlay.addEventListener("click", () => { setMode("flip"); onView({ mode: "flip", a: null, b: null }); });
   el.modeBlink.addEventListener("click", () => { setMode("blink"); onView({ mode: "blink", ...pairView() }); });
+  el.minusSlider?.addEventListener("input", () => { stop(); render(Number(el.minusSlider.value)); });
+  for (const select of [el.flipDiffA, el.flipDiffB]) {
+    select?.addEventListener("change", () => {
+      let a = Number(el.flipDiffA.value);
+      let b = Number(el.flipDiffB.value);
+      if (a === b) {
+        const ids = manifest.frames.map((f) => f.epoch_id);
+        const k = ids.indexOf(a);
+        b = ids[k + 1] ?? ids[k - 1];
+        el.flipDiffB.value = String(b);
+      }
+      if (manifest.frames.findIndex((f) => f.epoch_id === a) > manifest.frames.findIndex((f) => f.epoch_id === b)) {
+        [a, b] = [b, a];
+        el.flipDiffA.value = String(a);
+        el.flipDiffB.value = String(b);
+      }
+      wantedPair = [a, b];
+      render();
+      onView({ mode: "diff", a, b });
+    });
+  }
+  el.flipDiffDefault?.addEventListener("click", () => {
+    if (!diff) return;
+    el.flipDiffA.value = String(diff.default_pair.a);
+    el.flipDiffB.value = String(diff.default_pair.b);
+    wantedPair = [diff.default_pair.a, diff.default_pair.b];
+    render();
+    onView({ mode: "diff", a: diff.default_pair.a, b: diff.default_pair.b });
+  });
   el.showFlags.addEventListener("change", () => {
-    if (manifest) render(index);
+    if (manifest && isImages()) render(index);
     onView({ flags: el.showFlags.checked });
   });
   el.showGaia.addEventListener("change", () => { renderGaia(); onView({ gaia: el.showGaia.checked }); });
@@ -428,7 +676,7 @@ export function createFlipbook({
     if (button) onDetector(Number(button.dataset.det));
   });
   el.stage.addEventListener("click", (e) => {
-    if (!manifest) return;
+    if (!manifest || !isImages()) return;
     const p = pixelUnder(e.clientX, e.clientY, el.img.getBoundingClientRect(), manifest.size_px);
     if (p) onPixel(p);
   });
@@ -437,10 +685,13 @@ export function createFlipbook({
     if (!manifest) return;
     if (e.key === "ArrowRight") { stop(); step(1); e.preventDefault(); }
     if (e.key === "ArrowLeft") { stop(); step(-1); e.preventDefault(); }
-    if (e.key === " ") { (mode === "play" ? togglePlay : toggleBlink)(); e.preventDefault(); }
+    if (e.key === " " && isImages()) {
+      (mode === "blink" ? toggleBlink : togglePlay)();
+      e.preventDefault();
+    }
   });
 
   showMessage("Pick one of the 5 official targets, or type a position, to see its SPHEREx visits.");
-  if (view.mode === "blink") setMode("blink");
+  setMode(mode);
   return { show, gaiaLimit: () => el.gaiaMag.value };
 }

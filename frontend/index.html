@@ -138,34 +138,66 @@
             <div id="flip-flag-legend" class="flip-flag-legend" hidden></div>
 
             <div class="flip-modes" role="tablist" aria-label="Flipbook mode">
-              <button type="button" role="tab" id="mode-play" class="tab" aria-selected="true" aria-controls="play-controls">Play</button>
-              <button type="button" role="tab" id="mode-blink" class="tab" aria-selected="false" aria-controls="blink-controls">Blink 2 visits</button>
+              <button type="button" role="tab" id="mode-images" class="tab" aria-selected="true" aria-controls="images-controls">Images</button>
+              <button type="button" role="tab" id="mode-minus" class="tab" aria-selected="false" aria-controls="minus-controls">Minus median</button>
+              <button type="button" role="tab" id="mode-stack" class="tab" aria-selected="false" aria-controls="stack-controls">Add visits</button>
+              <button type="button" role="tab" id="mode-diff" class="tab" aria-selected="false" aria-controls="diff-controls">Difference</button>
             </div>
 
-            <div id="play-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-play">
-              <div class="button-row">
-                <button type="button" id="flip-prev" class="btn btn-small" aria-label="Previous visit">◀</button>
-                <button type="button" id="flip-play" class="btn btn-small btn-primary" aria-label="Play">Play</button>
-                <button type="button" id="flip-next" class="btn btn-small" aria-label="Next visit">▶</button>
+            <div id="images-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-images">
+              <div class="flip-modes" role="tablist" aria-label="How to flip the images">
+                <button type="button" role="tab" id="mode-play" class="tab" aria-selected="true" aria-controls="play-controls">Play</button>
+                <button type="button" role="tab" id="mode-blink" class="tab" aria-selected="false" aria-controls="blink-controls">Blink 2 visits</button>
               </div>
-              <label class="label" for="flip-slider"><span>Visit</span> <output id="flip-position" for="flip-slider">–</output></label>
-              <input id="flip-slider" type="range" min="0" max="0" step="1" value="0">
-              <div class="inline-row">
-                <label class="inline-label" for="flip-speed"><span>Speed</span> <select id="flip-speed"></select></label>
-                <label class="check"><input type="checkbox" id="flip-loop" checked> <span>Loop</span></label>
+              <div id="play-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-play">
+                <div class="button-row">
+                  <button type="button" id="flip-prev" class="btn btn-small" aria-label="Previous visit">◀</button>
+                  <button type="button" id="flip-play" class="btn btn-small btn-primary" aria-label="Play">Play</button>
+                  <button type="button" id="flip-next" class="btn btn-small" aria-label="Next visit">▶</button>
+                </div>
+                <label class="label" for="flip-slider"><span>Visit</span> <output id="flip-position" for="flip-slider">–</output></label>
+                <input id="flip-slider" type="range" min="0" max="0" step="1" value="0">
+                <div class="inline-row">
+                  <label class="inline-label" for="flip-speed"><span>Speed</span> <select id="flip-speed"></select></label>
+                  <label class="check"><input type="checkbox" id="flip-loop" checked> <span>Loop</span></label>
+                </div>
+              </div>
+              <div id="blink-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-blink" hidden>
+                <div class="inline-row">
+                  <label class="inline-label" for="blink-a"><span>Visit A</span> <select id="blink-a"></select></label>
+                  <label class="inline-label" for="blink-b"><span>Visit B</span> <select id="blink-b"></select></label>
+                </div>
+                <div class="inline-row">
+                  <button type="button" id="blink-toggle" class="btn btn-small btn-primary">Start blinking</button>
+                  <label class="inline-label" for="blink-speed"><span>Speed</span> <select id="blink-speed"></select></label>
+                </div>
+                <p class="help">Like Clyde Tombaugh in 1930: two pictures of the same sky swap quickly, and anything that moved or changed jumps out.</p>
               </div>
             </div>
 
-            <div id="blink-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-blink" hidden>
+            <div id="minus-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-minus" hidden>
+              <label class="label" for="minus-slider"><span>Visit</span> <output id="minus-position" for="minus-slider">–</output></label>
+              <input id="minus-slider" type="range" min="0" max="0" step="1" value="0">
+              <p class="help">Each visit minus the median of all visits, in units of that visit's noise. Fixed stars mostly cancel; a mover leaves a dark and bright pair.</p>
+            </div>
+
+            <div id="stack-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-stack" hidden>
+              <fieldset class="stack-visits">
+                <legend>Visits to add</legend>
+                <div id="stack-visit-list" class="stack-visit-list"></div>
+              </fieldset>
+              <p id="stack-noise" class="help" aria-live="polite"></p>
+              <p class="help">Visits are added with 1/variance weights. Noise should drop close to 1/√N for N independent visits.</p>
+            </div>
+
+            <div id="diff-controls" class="flip-controls" role="tabpanel" aria-labelledby="mode-diff" hidden>
               <div class="inline-row">
-                <label class="inline-label" for="blink-a"><span>Visit A</span> <select id="blink-a"></select></label>
-                <label class="inline-label" for="blink-b"><span>Visit B</span> <select id="blink-b"></select></label>
+                <label class="inline-label" for="flip-diff-a"><span>Before (A)</span> <select id="flip-diff-a"></select></label>
+                <label class="inline-label" for="flip-diff-b"><span>After (B)</span> <select id="flip-diff-b"></select></label>
+                <button type="button" id="flip-diff-default" class="btn btn-small">Closest wavelengths</button>
               </div>
-              <div class="inline-row">
-                <button type="button" id="blink-toggle" class="btn btn-small btn-primary">Start blinking</button>
-                <label class="inline-label" for="blink-speed"><span>Speed</span> <select id="blink-speed"></select></label>
-              </div>
-              <p class="help">Like Clyde Tombaugh in 1930: two pictures of the same sky swap quickly, and anything that moved or changed jumps out.</p>
+              <p id="flip-diff-facts" class="help"></p>
+              <p class="help">Orange = brighter in B; blue = fainter in B. The full Before / After / Difference panels below show the same pair.</p>
             </div>
           </div>
 

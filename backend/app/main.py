@@ -8,6 +8,9 @@ SPHEREx images come from NASA IRSA (search) and IRSA's public AWS copy (pixels),
     /api/coverage?ra=&dec=[&band=]             SPHEREx images covering the point
     /api/releases                              SPHEREx collection counts and date span
     /api/gaia /api/wise                        marker sidecars for the current frames folder (when present)
+    /api/diff                                  difference maps (diff.json)
+    /api/proof                                 measured motion vs Gaia (proof.json)
+    /api/stack[?visits=0,1,2]                  visit coadd (stack.json); visits= remakes for a subset
     /api/frames?target=&band=                  manifest of the prepared frames (5 official targets)
     /api/frames?ra=&dec=&band=[&fov_arcmin=]   any position: starts a background job (HTTP 202 and
                                                {"status": "working", "message"} meanwhile), then the same manifest
@@ -32,9 +35,14 @@ from fastapi.staticfiles import StaticFiles
 from backend.app import archive
 from backend.app.config import CACHE_DIR, DETECTORS, REPO_ROOT
 from backend.app.coverage import coverage_answer
+from backend.app.diff import write_diff, write_minus_median
+from backend.app.gaia import write_gaia
 from backend.app.motion import position_at, separation_arcsec
+from backend.app.proof import write_proof
 from backend.app.resolve import ResolverUnavailable, resolve_name
+from backend.app.stack import write_stack
 from backend.app.targets import OFFICIAL_TARGETS
+from backend.app.wise import write_wise
 
 FRONTEND_DIR = REPO_ROOT / "frontend"
 PREPARED_DIR = FRONTEND_DIR / "frames"
@@ -128,7 +136,14 @@ _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
 
 # Run on every new frames folder after render, as (stage, step(folder)); a failed step is a warning, not a failure.
-AFTER_RENDER_STEPS: list[tuple[str, Callable[[Path], object]]] = []
+AFTER_RENDER_STEPS: list[tuple[str, Callable[[Path], object]]] = [
+    ("Gaia DR3 markers", write_gaia),
+    ("CatWISE2020 markers", write_wise),
+    ("difference maps", write_diff),
+    ("minus-median frames", write_minus_median),
+    ("visit stack", write_stack),
+    ("proof panel", write_proof),
+]
 
 
 def _render() -> ModuleType:
@@ -304,6 +319,56 @@ def gaia(loc: dict = Depends(location)):
 @app.get("/api/wise")
 def wise(loc: dict = Depends(location)):
     return _read(loc, "wise.json", "WISE markers")
+
+
+@app.get("/api/diff")
+def diff(loc: dict = Depends(location)):
+    d = _read(loc, "diff.json", "difference maps")
+    for p in d.get("pairs", []):
+        p["png_url"] = loc["url"] + p["png"]
+    for f in d.get("minus_median", {}).get("frames", []):
+        f["png_url"] = loc["url"] + f["png"]
+    if d.get("minus_median", {}).get("median_png"):
+        d["minus_median"]["median_png_url"] = loc["url"] + d["minus_median"]["median_png"]
+    return {**d, "base_url": loc["url"]}
+
+
+@app.get("/api/proof")
+def proof(loc: dict = Depends(location)):
+    return _read(loc, "proof.json", "proof panel data")
+
+
+def _parse_visits(text: str | None) -> list[int] | None:
+    if text is None or text.strip() == "":
+        return None
+    parts = [p.strip() for p in text.split(",") if p.strip() != ""]
+    if not parts or not all(p.isdigit() for p in parts):
+        raise ApiError(400, "visits must be a comma-separated list of visit numbers, e.g. visits=0,1,2")
+    return [int(p) for p in parts]
+
+
+@app.get("/api/stack")
+def stack(loc: dict = Depends(location), visits: str | None = Query(None, description="comma-separated visit ids")):
+    wanted = _parse_visits(visits)
+    manifest_path = loc["folder"] / "manifest.json"
+    if not manifest_path.exists():
+        raise ApiError(404, "No frames for this position and detector")
+    all_ids = [f["epoch_id"] for f in json.loads(manifest_path.read_text())["frames"]]
+    from backend.app.stack import stack_names
+    fits_name, png_name, json_name = stack_names(wanted, all_ids)
+    path = loc["folder"] / json_name
+    if path.exists() and (wanted is None or json.loads(path.read_text()).get("visits") == wanted):
+        data = json.loads(path.read_text())
+    else:
+        try:
+            data = write_stack(loc["folder"], visits=wanted)
+        except FileNotFoundError as exc:
+            raise ApiError(404, str(exc))
+        except ValueError as exc:
+            raise ApiError(400, str(exc))
+    png = data.get("png", png_name)
+    fits = data.get("fits", fits_name)
+    return {**data, "base_url": loc["url"], "png_url": loc["url"] + png, "fits_url": loc["url"] + fits}
 
 
 @app.get("/api/{rest:path}")

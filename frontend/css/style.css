@@ -727,7 +727,10 @@ input[type="range"] { width: 100%; accent-color: var(--text); min-height: 32px; 
 .flip-label { margin: 0; font-size: 0.9rem; min-height: 2.6em; }
 
 /* Segmented control */
-.flip-modes { display: inline-flex; justify-self: start; gap: 2px; padding: 3px; background: var(--panel-2); border-radius: 999px; }
+.flip-modes { display: inline-flex; flex-wrap: wrap; justify-self: start; gap: 2px; padding: 3px; background: var(--panel-2); border-radius: 999px; }
+.stack-visits { border: 0; margin: 0; padding: 0; }
+.stack-visits legend { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem; }
+.stack-visit-list { display: grid; gap: 0.35rem; }
 .tab {
   font: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: var(--muted);
   background: transparent; border: 0; border-radius: 999px; padding: 0.3rem 0.95rem; min-height: 32px;

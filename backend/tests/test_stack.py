@@ -5,7 +5,13 @@ import pytest
 from astropy.io import fits
 
 from backend.app.coadd import coadd
-from backend.app.stack import load_visit_frame, write_stack
+from backend.app.stack import load_visit_frame, stack_names, write_stack
+
+
+def test_subset_stack_uses_tagged_file_names():
+    assert stack_names(None, [0, 1, 2]) == ("stack.fits", "stack.png", "stack.json")
+    assert stack_names([0, 1, 2], [0, 1, 2]) == ("stack.fits", "stack.png", "stack.json")
+    assert stack_names([0, 2], [0, 1, 2]) == ("stack_0_2.fits", "stack_0_2.png", "stack_0_2.json")
 
 
 def test_coadd_noise_reduction_synthetic():
