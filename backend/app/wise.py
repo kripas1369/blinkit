@@ -142,13 +142,26 @@ def markers(
 
 
 def write_wise(folder: Path) -> dict:
-    """wise.json for a frames folder."""
+    """wise.json for a frames folder.
+
+    When IRSA TAP is down, still write an empty CatWISE sidecar so the flipbook and
+    check_frames can proceed; re-run this module once TAP answers again.
+    """
+    from backend.app import archive
+
     manifest = json.loads((folder / "manifest.json").read_text())
     ra, dec, fov = manifest["ra"], manifest["dec"], manifest["fov_arcmin"]
     frames = manifest["frames"]
     years = [mjd_to_year(f["mjd"]) for f in frames]
     radius = search_radius_deg(fov, max(abs(y - CATWISE_EPOCH) for y in years))
-    sources = wise_sources(ra, dec, radius)
+    unavailable = None
+    try:
+        sources = wise_sources(ra, dec, radius)
+    except archive.ArchiveError as exc:
+        print(f"  warning: CatWISE TAP failed ({exc}); writing empty wise.json")
+        sources = []
+        unavailable = str(exc)
+
     result = markers(ra, dec, fov, frames, sources, target_year=2026.0)
 
     wise = {
@@ -161,6 +174,7 @@ def write_wise(folder: Path) -> dict:
             "dec": dec,
             "radius_deg": round(radius, 6),
             "n_returned": len(sources),
+            **({"unavailable": unavailable} if unavailable else {}),
         },
         "method": (
             f"each CatWISE2020 position (epoch {round(CATWISE_EPOCH, 4)}) moved in a straight line with "

@@ -26,8 +26,50 @@ MAX_MOTION_ARCSEC_PER_YEAR = 11.0  # Barnard's Star moves 10.4″/yr
 MARGIN_PX = 1.0
 
 
+def _gaia_row_value(row, name):
+    v = row[name]
+    return None if np.ma.is_masked(v) or not np.isfinite(float(v)) else float(v)
+
+
+def _stars_from_table(table) -> list[dict]:
+    stars = []
+    for row in table:
+        epoch = _gaia_row_value(row, "ref_epoch")
+        if epoch is not None and abs(epoch - GAIA_EPOCH) > 0.01:
+            raise archive.ArchiveError(
+                f"Gaia source {row['source_id']} has ref_epoch {epoch}, expected {GAIA_EPOCH}"
+            )
+        stars.append({
+            "source_id": str(row["source_id"]),
+            "ra": float(row["ra"]),
+            "dec": float(row["dec"]),
+            "pmra": _gaia_row_value(row, "pmra"),
+            "pmdec": _gaia_row_value(row, "pmdec"),
+            "parallax": _gaia_row_value(row, "parallax"),
+            "g_mag": _gaia_row_value(row, "phot_g_mean_mag"),
+        })
+    return stars
+
+
+def _gaia_from_esa(ra: float, dec: float, radius_deg: float):
+    """Gaia DR3 via ESA's archive (astroquery) when IRSA TAP is down."""
+    from astroquery.gaia import Gaia
+
+    Gaia.ROW_LIMIT = -1
+    adql = f"""
+        SELECT source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag, ref_epoch
+        FROM gaiadr3.gaia_source
+        WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
+    """
+    return Gaia.launch_job(adql).get_results()
+
+
 def gaia_stars(ra: float, dec: float, radius_deg: float) -> list[dict]:
-    """Every Gaia DR3 source within radius_deg of (ra, dec), as Gaia lists it (positions for 2016.0)."""
+    """Every Gaia DR3 source within radius_deg of (ra, dec), as Gaia lists it (positions for 2016.0).
+
+    Tries NASA/IPAC IRSA first (same TAP as SPHEREx). If IRSA is down, falls back to ESA's
+    Gaia archive through astroquery so overlays and proofs still work.
+    """
     cache_file = CACHE_DIR / "gaia" / f"{ra:.5f}_{dec:+.5f}_{radius_deg:.4f}_gaia.json"
     if cache_file.exists():
         try:
@@ -35,31 +77,25 @@ def gaia_stars(ra: float, dec: float, radius_deg: float) -> list[dict]:
         except Exception:
             pass
 
-    table = archive.run_query(f"""
-        SELECT source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag, ref_epoch
-        FROM {GAIA_TABLE}
-        WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
-    """)
+    table = None
+    source = f"{GAIA_TABLE} at NASA/IPAC IRSA"
+    try:
+        table = archive.run_query(f"""
+            SELECT source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag, ref_epoch
+            FROM {GAIA_TABLE}
+            WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.8f}, {dec:.8f}, {radius_deg:.6f})) = 1
+        """)
+    except archive.ArchiveError as irsa_error:
+        print(f"  warning: IRSA Gaia failed ({irsa_error}); trying ESA Gaia archive")
+        try:
+            table = _gaia_from_esa(ra, dec, radius_deg)
+            source = "gaiadr3.gaia_source at ESA (astroquery)"
+        except Exception as esa_error:
+            raise archive.ArchiveError(f"{irsa_error}; ESA Gaia also failed: {esa_error}") from esa_error
 
-    def value(row, name):
-        v = row[name]
-        return None if np.ma.is_masked(v) or not np.isfinite(float(v)) else float(v)
-
-    stars = []
-    for row in table:
-        epoch = value(row, "ref_epoch")
-        if epoch != GAIA_EPOCH:
-            raise archive.ArchiveError(f"Gaia source {row['source_id']} has ref_epoch {epoch}, expected {GAIA_EPOCH}")
-        stars.append({
-            "source_id": str(row["source_id"]),
-            "ra": float(row["ra"]),
-            "dec": float(row["dec"]),
-            "pmra": value(row, "pmra"),
-            "pmdec": value(row, "pmdec"),
-            "parallax": value(row, "parallax"),
-            "g_mag": value(row, "phot_g_mean_mag"),
-        })
-
+    stars = _stars_from_table(table)
+    if "ESA" in source:
+        print(f"  Gaia: {len(stars)} stars from {source}")
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(stars, indent=1))
     return stars
