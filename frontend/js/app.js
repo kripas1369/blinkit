@@ -90,6 +90,8 @@ let A = null;
 let aladin = null;
 /** "aladin" | "esasky" | "none" — ESASky iframe is the backup when Aladin Lite fails. */
 let mapMode = "none";
+/** Bumped when we give up on Aladin so a late CDN answer cannot wipe the ESASky fallback. */
+let mapBootId = 0;
 
 const ESASKY_HIPS = {
   "2mass": "2MASS color",
@@ -763,11 +765,28 @@ function onCoordPaste(event) {
   onCoordInput();
 }
 
+const ALADIN_CDN_MS = 4000;   // one stuck CDN must not hang the whole map
+const ALADIN_TOTAL_MS = 10000; // then fall back to ESASky so users are not stuck on “Loading…”
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function setMapLoading(text) {
+  const el = $("map-message") || mapMessage;
+  if (el) el.textContent = text;
+}
+
 // The npm build of Aladin Lite 3.8 is an ES module (export default), not a global script.
 async function loadAladin() {
   for (const src of ALADIN_SCRIPTS) {
     try {
-      return (await import(src)).default;
+      const mod = await withTimeout(import(src), ALADIN_CDN_MS, "Aladin CDN");
+      if (mod?.default) return mod.default;
     } catch {
       // try the next CDN
     }
@@ -775,50 +794,39 @@ async function loadAladin() {
   return null;
 }
 
-async function startMap() {
-  const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
+async function startAladinMap(first, bootId) {
   A = await loadAladin();
-  if (!A) {
-    showEsaskyMap(first.ra, first.dec, "CDN blocked or offline");
-    return;
-  }
-  try {
-    await A.init;
-  } catch (err) {
-    showEsaskyMap(first.ra, first.dec, String(err));
-    return;
-  }
+  if (bootId !== mapBootId) return;
+  if (!A) throw new Error("CDN blocked or offline");
+  await withTimeout(Promise.resolve(A.init), ALADIN_CDN_MS, "Aladin init");
+  if (bootId !== mapBootId) return;
   // Keep the sky panel visible so Aladin can size its WebGL canvas.
   setInspector(true);
+  aladin = A.aladin("#aladin", {
+    survey: surveyLayer(SURVEYS[0]),
+    target: `${first.ra} ${first.dec}`,
+    fov: state.ra !== null ? viewFovDegrees() : 0.5,
+    cooFrame: "ICRS",
+    showReticle: true,
+    reticleColor: "#ffffff",
+    showZoomControl: true,
+    showFullscreenControl: true,
+    showLayersControl: false,
+    showGotoControl: false,
+    showProjectionControl: false,
+    showSimbadPointerControl: false,
+    showShareControl: false,
+    showCooGrid: false,
+    showFrame: true,
+  });
+  if (bootId !== mapBootId) return;
   try {
-    aladin = A.aladin("#aladin", {
-      survey: surveyLayer(SURVEYS[0]),
-      target: `${first.ra} ${first.dec}`,
-      fov: state.ra !== null ? viewFovDegrees() : 0.5,
-      cooFrame: "ICRS",
-      showReticle: true,
-      reticleColor: "#ffffff",
-      showZoomControl: true,
-      showFullscreenControl: true,
-      showLayersControl: false,
-      showGotoControl: false,
-      showProjectionControl: false,
-      showSimbadPointerControl: false,
-      showShareControl: false,
-      showCooGrid: false,
-      showFrame: true,
-    });
-    try {
-      aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(SURVEYS[0]), { name: SURVEYS[0].name, ...MAP_LOOK }));
-    } catch {
-      aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
-    }
-    mapMessage?.remove();
-    mapMode = "aladin";
-  } catch (err) {
-    showEsaskyMap(first.ra, first.dec, String(err));
-    return;
+    aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(SURVEYS[0]), { name: SURVEYS[0].name, ...MAP_LOOK }));
+  } catch {
+    aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
   }
+  $("map-message")?.remove();
+  mapMode = "aladin";
   fovOverlay = A.graphicOverlay({ color: "#ffffff", lineWidth: 2 });
   aladin.addOverlay(fovOverlay);
   // Aladin sometimes reports the end of a pan as a click; only a still press picks a position.
@@ -842,6 +850,19 @@ async function startMap() {
     setStatus("Position set from the map.", "ok");
   });
   drawFovBox();
+}
+
+async function startMap() {
+  const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
+  const bootId = ++mapBootId;
+  setMapLoading("Trying Aladin Lite…");
+  try {
+    await withTimeout(startAladinMap(first, bootId), ALADIN_TOTAL_MS, "Aladin Lite");
+  } catch (err) {
+    if (bootId !== mapBootId) return;
+    mapBootId += 1;
+    showEsaskyMap(first.ra, first.dec, String(err?.message || err));
+  }
 }
 
 function changeSurvey() {
