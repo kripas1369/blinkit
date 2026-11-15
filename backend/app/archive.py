@@ -161,6 +161,26 @@ def releases() -> list[dict]:
     return _releases_cached(int(time.time() // 3600))
 
 
+def releases_report() -> dict:
+    """IRSA release inventory plus what this app is currently searching.
+
+    `new_collections` are science tables at IRSA that are not in config.COLLECTIONS yet —
+    add them with SPHEREX_COLLECTIONS (no code change required).
+    """
+    rows = releases()
+    available = discover_collections()
+    searched = list(COLLECTIONS)
+    new_collections = [c for c in available if c not in searched]
+    newest = max((r["last"] for r in rows), default=None)
+    return {
+        "releases": rows,
+        "searched": searched,
+        "available": available,
+        "new_collections": new_collections,
+        "newest": newest,
+    }
+
+
 def _fetch_s3_keys_sia(ra: float, dec: float, collections: tuple[str, ...]) -> dict[str, str]:
     """Query IRSA SIA2 to retrieve AWS S3 keys when obscore cloud_access is empty."""
     s3_keys = {}

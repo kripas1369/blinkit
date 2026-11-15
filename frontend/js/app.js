@@ -58,6 +58,8 @@ const shareButton = $("share-btn");
 const fovSlowNote = $("fov-slow-note");
 const fovFastMover = $("fov-fast-mover");
 const dataReleases = $("data-releases");
+const dataNewReleases = $("data-new-releases");
+const flipDataAsOf = $("flip-data-as-of");
 const mapGaiaCat = $("map-gaia-cat");
 const mapWiseCat = $("map-wise-cat");
 
@@ -144,19 +146,48 @@ function releaseLabel(collection) {
 }
 
 async function loadDataReleases() {
-  if (!dataReleases) return;
+  if (!dataReleases && !flipDataAsOf) return;
   try {
-    const rows = await fetch("/api/releases").then((r) => {
+    const body = await fetch("/api/releases").then((r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     });
+    // New shape: { releases, searched, available, new_collections, newest }.
+    // Older servers returned a bare array — still accept that.
+    const rows = Array.isArray(body) ? body : (body.releases || []);
     if (!rows.length) throw new Error("no releases");
-    const newest = rows.map((r) => r.last).sort().at(-1);
+    const newest = (Array.isArray(body) ? null : body.newest) || rows.map((r) => r.last).sort().at(-1);
+    const searched = Array.isArray(body) ? null : (body.searched || []);
+    const newCols = Array.isArray(body) ? [] : (body.new_collections || []);
     const parts = rows.map((r) =>
       `${releaseLabel(r.collection)} (${r.n_images.toLocaleString()} images, ${r.first} to ${r.last})`);
-    dataReleases.textContent = `Data as of ${newest} (newest SPHEREx image at NASA IRSA). Releases: ${parts.join("; ")}.`;
+    const line = `Data as of ${newest} · NASA IRSA · ${parts.join(" · ")}`;
+    if (dataReleases) {
+      const searchNote = searched?.length
+        ? ` Searching: ${searched.map(releaseLabel).join(", ")}.`
+        : "";
+      dataReleases.textContent = `${line}.${searchNote} Prepared flipbooks are snapshots; any RA/Dec job pulls the latest exposures.`;
+    }
+    if (flipDataAsOf) flipDataAsOf.textContent = `Data as of ${newest} (live from NASA IRSA)`;
+    if (dataNewReleases) {
+      if (newCols.length) {
+        dataNewReleases.hidden = false;
+        dataNewReleases.textContent =
+          `New IRSA collection(s) not searched yet: ${newCols.map(releaseLabel).join(", ")}. ` +
+          `Enable with SPHEREX_COLLECTIONS (see README) — no code change needed — then re-render.`;
+      } else {
+        dataNewReleases.hidden = true;
+        dataNewReleases.textContent = "";
+      }
+    }
   } catch {
-    dataReleases.textContent = "NASA IRSA did not answer, so the release list is not shown. Frames and search still work; reload later to try again.";
+    const fail = "NASA IRSA did not answer, so the release list is not shown. Frames and search still work; reload later to try again.";
+    if (dataReleases) dataReleases.textContent = fail;
+    if (flipDataAsOf) flipDataAsOf.textContent = "SPHEREx release info unavailable (IRSA).";
+    if (dataNewReleases) {
+      dataNewReleases.hidden = true;
+      dataNewReleases.textContent = "";
+    }
   }
 }
 

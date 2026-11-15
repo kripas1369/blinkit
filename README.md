@@ -42,12 +42,30 @@ cd frontend && npm test
 |------|--------|
 | SPHEREx discovery | NASA/IPAC [IRSA](https://irsa.ipac.caltech.edu/) (SIA first, TAP fallback) |
 | SPHEREx pixels | Public AWS copy `nasa-irsa-spherex` (HTTP range reads); IRSA cutout fallback |
-| Gaia DR3 | IRSA TAP `gaiadr3.gaia_source` |
+| Gaia DR3 | IRSA TAP `gaia_dr3_source` (ESA archive fallback) |
 | CatWISE2020 | IRSA TAP `catwise_2020` |
 | Name search | CDS SIMBAD (via astroquery) |
 | Sky map | CDS Aladin Lite tiles in the UI |
 
 Stack: Python 3.12+, **astropy**, **astroquery**, **pyvo**, **reproject**, **FastAPI**, vanilla JS frontend.
+
+## Keeping up with new SPHEREx releases
+
+NASA publishes SPHEREx data quickly. Blinkit is built to follow without rewriting the app:
+
+1. **Live discovery** — every search hits IRSA (SIA → TAP). New exposures appear as soon as they are indexed.
+2. **Switch collections with one env var** (no code change):
+   ```bash
+   export SPHEREX_COLLECTIONS=spherex_qr3,spherex_qr3_deep,spherex_dr1,spherex_dr1_deep,spherex_dr2
+   uvicorn backend.app.main:app --port 8000
+   ```
+3. **Re-render** prepared targets (or open any RA/Dec so a background job pulls the latest):
+   ```bash
+   python -m backend.app.render barnard 2 --out frontend/frames
+   ```
+4. **UI** — “Data as of …” under the flipbook comes from `GET /api/releases`. If IRSA lists a collection we are not searching yet, the Data panel shows how to enable it.
+
+**Already done once:** when IRSA retired QR2, we moved to QR3 + DR1 (`SPHEREX_COLLECTIONS` / defaults), compared QR2 vs DR1 on S3 (`scripts/compare_qr2_dr1.py`), and documented the differences in [docs/VALIDATION.md](docs/VALIDATION.md). Prepared flipbooks are **snapshots**; random-sky jobs stay **live**.
 
 ## Phase 1 status
 

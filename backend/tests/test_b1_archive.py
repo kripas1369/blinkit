@@ -37,6 +37,27 @@ def test_discover_collections_filters_cal_and_non_spherex(monkeypatch):
     assert "wise_allwise" not in cols
 
 
+def test_releases_report_flags_collections_not_yet_searched(monkeypatch):
+    monkeypatch.setattr(archive, "COLLECTIONS", ("spherex_dr1", "spherex_qr3"))
+    monkeypatch.setattr(
+        archive, "discover_collections",
+        lambda: ["spherex_dr1", "spherex_qr3", "spherex_dr2"],
+    )
+    monkeypatch.setattr(archive, "releases", lambda: [
+        {"collection": "spherex_dr1", "n_images": 10, "min_mjd": 60000.0, "max_mjd": 61000.0,
+         "first": "2025-01-01", "last": "2026-01-01"},
+        {"collection": "spherex_qr3", "n_images": 5, "min_mjd": 60500.0, "max_mjd": 61200.0,
+         "first": "2025-06-01", "last": "2026-06-01"},
+        {"collection": "spherex_dr2", "n_images": 1, "min_mjd": 61300.0, "max_mjd": 61300.0,
+         "first": "2026-09-01", "last": "2026-09-01"},
+    ])
+    report = archive.releases_report()
+    assert report["new_collections"] == ["spherex_dr2"]
+    assert report["searched"] == ["spherex_dr1", "spherex_qr3"]
+    assert report["newest"] == "2026-09-01"
+    assert len(report["releases"]) == 3
+
+
 def _sia_down(*_a, **_k):
     raise archive.ArchiveError("SIA down")
 

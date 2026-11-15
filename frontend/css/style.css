@@ -782,6 +782,20 @@ input[type="range"] { width: 100%; accent-color: var(--text); min-height: 32px; 
 .fov-preset { margin-top: 0.45rem; }
 .map-catalog-toggles { margin-top: 0.65rem; }
 .data-releases { margin: 0; }
+.data-new-releases {
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-left: 3px solid var(--accent, #c4a35a);
+  background: color-mix(in srgb, var(--panel-2, #1c1c1e) 88%, transparent);
+  color: #e8e4d8;
+  font-size: 0.82rem;
+}
+.flip-data-as-of {
+  margin: 0.15rem 0 0.65rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
 
 /* Proof */
 .proof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }

@@ -6,7 +6,7 @@ SPHEREx images come from NASA IRSA (search) and IRSA's public AWS copy (pixels),
     /api/health
     /api/resolve?name=                         SIMBAD position and proper motion
     /api/coverage?ra=&dec=[&band=]             SPHEREx images covering the point
-    /api/releases                              SPHEREx collection counts and date span
+    /api/releases                              SPHEREx collections at IRSA + which ones we search
     /api/gaia /api/wise                        marker sidecars for the current frames folder (when present)
     /api/diff                                  difference maps (diff.json)
     /api/proof                                 measured motion vs Gaia (proof.json)
@@ -299,8 +299,9 @@ def coverage(
 
 @app.get("/api/releases")
 def releases():
+    """Active IRSA SPHEREx collections, what we search, and any new ones not yet enabled."""
     try:
-        return archive.releases()
+        return archive.releases_report()
     except archive.ArchiveError as exc:
         raise ApiError(502, f"IRSA did not answer: {exc}")
 
