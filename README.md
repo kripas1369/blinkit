@@ -2,7 +2,12 @@
 
 Compare real SPHEREx visits of the same sky in a flipbook: blink, color, minus-median, difference, visit stack, and Gaia motion proof.
 
-**Team Not42** (Kripas Khatiwada & Govinda) · Live: [https://blinkit.study](https://blinkit.study) · Branch: `phase1-complete`
+**Team Not42** (Kripas Khatiwada & Govinda) · Branch: `phase1-complete`
+
+| | URL |
+|---|-----|
+| **Live (primary)** | [https://blinkit.study](https://blinkit.study) |
+| **Live (AWS backup)** | [https://aws.blinkit.study](https://aws.blinkit.study) |
 
 Inspired by [WiseView](http://byw.tools/wiseview) (WISE blink tool). Built for SPHEREx Level-2 from NASA IRSA / AWS. See [docs/WHAT_WE_BUILT.md](docs/WHAT_WE_BUILT.md).
 

@@ -116,3 +116,16 @@ Raw TAP/502 strings are rewritten to a short note: Blinkit is fine; NASA IRSA di
 curl -s https://YOUR_DOMAIN/api/health
 # {"ok":true}
 ```
+
+## 9. Primary + AWS backup (Team Not42)
+
+| Host | Role |
+|------|------|
+| `blinkit.study` | Primary VPS |
+| `aws.blinkit.study` | Backup on AWS EC2 (same repo, `DOMAIN=aws.blinkit.study`) |
+
+After each `git push` to `phase1-complete`, run on **both** servers:
+
+```bash
+cd /opt/blinkit && git pull origin phase1-complete && sudo systemctl restart blinkit
+```

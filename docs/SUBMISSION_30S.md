@@ -1,7 +1,8 @@
 # Blinkit — under 30 seconds (general overview)
 
 **Team:** Not42 · NASA Space Apps 2026 · Planet X and SPHEREx  
-**Site:** https://blinkit.study  
+**Site (primary):** https://blinkit.study  
+**Site (backup):** https://aws.blinkit.study  
 **Speak time:** ~25–28 seconds · ~70 words · calm, clear pace
 
 ## Project Demonstration (Space Apps form)

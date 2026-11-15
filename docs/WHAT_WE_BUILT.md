@@ -1,6 +1,6 @@
 # What we built — new methods, inspiration, and what is still out of scope
 
-Blinkit is a **SPHEREx visit flipbook**: same sky, several times, so movers and changes are obvious by eye. Team **Not42** (Kripas Khatiwada & Govinda). Live site: [https://blinkit.study](https://blinkit.study).
+Blinkit is a **SPHEREx visit flipbook**: same sky, several times, so movers and changes are obvious by eye. Team **Not42** (Kripas Khatiwada & Govinda). Live: [https://blinkit.study](https://blinkit.study) · AWS backup: [https://aws.blinkit.study](https://aws.blinkit.study).
 
 ## Inspiration we actually used
 
@@ -47,7 +47,7 @@ Things teams rarely ship end-to-end in one weekend — **we did ship these**:
 - Overlays: Gaia, CatWISE; FOV on the sky map.
 - Proof + Six Eyes on official targets.
 - Tests + frame audit (`check_frames` 30/30) + hosting docs.
-- Public site on **blinkit.study**.
+- Public sites: **blinkit.study** (primary VPS) and **aws.blinkit.study** (AWS EC2 backup).
 
 ## Not done (on purpose for this hackathon)
 
