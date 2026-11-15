@@ -778,8 +778,9 @@ input[type="range"] { width: 100%; accent-color: var(--text); min-height: 32px; 
   position: relative; width: 100%; aspect-ratio: 1;
   background: repeating-linear-gradient(45deg, #1c1c1e 0 4px, #0a0a0a 4px 8px);
   border-radius: var(--radius-sm); overflow: hidden;
-  /* Keep flips inside the stage so the rest of the page doesn’t jump. */
-  contain: layout paint size;
+  /* Keep flips inside the stage so the rest of the page doesn’t jump.
+     Do not use contain:size — it can collapse aspect-ratio in some browsers. */
+  contain: layout paint;
   flex-shrink: 0;
 }
 .flip-stage:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

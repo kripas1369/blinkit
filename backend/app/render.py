@@ -149,8 +149,16 @@ def save_flags_png(bad: np.ndarray, path: Path) -> None:
     Image.fromarray(np.flipud(rgba), "RGBA").save(path)
 
 
-def save_frame_fits(picture: dict, grid, mjd: float, n_images: int, detector: int, mode: str,
-                    path: Path) -> None:
+def save_frame_fits(
+    picture: dict,
+    grid,
+    mjd: float,
+    n_images: int,
+    detector: int,
+    mode: str,
+    path: Path,
+    pixel_source: str | None = None,
+) -> None:
     """Value, sigma, flagged and has-value maps on the frames grid (FITS rows: south first)."""
     header = grid.to_header()
     header["BUNIT"] = "MJy/sr"
@@ -158,7 +166,15 @@ def save_frame_fits(picture: dict, grid, mjd: float, n_images: int, detector: in
     header["NIMAGES"] = (n_images, "exposures added")
     header["DETECTOR"] = detector
     header["MODE"] = mode
-    hdus = [fits.PrimaryHDU()]
+    primary = fits.PrimaryHDU()
+    primary.header["MJD-AVG"] = (mjd, "mean MJD-AVG of the exposures in this picture")
+    primary.header["NIMAGES"] = (n_images, "exposures added")
+    primary.header["DETECTOR"] = detector
+    primary.header["MODE"] = mode
+    if pixel_source:
+        primary.header["PIXSRC"] = (pixel_source, "aws-s3, irsa-cutout, or mixed")
+        header["PIXSRC"] = (pixel_source, "aws-s3, irsa-cutout, or mixed")
+    hdus = [primary]
     for name, data, comment in [
         ("IMAGE", picture["image"].astype(np.float32), "IMAGE - ZODI, NaN where no usable value"),
         ("SIGMA", picture["sigma"].astype(np.float32), "1 sigma noise from VARIANCE"),
@@ -269,8 +285,11 @@ def render_frames(ra: float, dec: float, key: str, label: str, position_source: 
         png, flags_png = f"epoch{f['epoch_id']}.png", f"epoch{f['epoch_id']}_flags.png"
         save_png(p["image"], p["covered"], scale, out_dir / png)
         save_flags_png(p["bad"], out_dir / flags_png)
-        save_frame_fits(p, grid, round(f["mjd"], 5), f["n_images"], detector, mode,
-                        out_dir / f"epoch{f['epoch_id']}.fits")
+        save_frame_fits(
+            p, grid, round(f["mjd"], 5), f["n_images"], detector, mode,
+            out_dir / f"epoch{f['epoch_id']}.fits",
+            pixel_source=f.get("pixel_source"),
+        )
         manifest_frames.append({
             "png": png,
             "flags_png": flags_png,

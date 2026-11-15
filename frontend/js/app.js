@@ -379,7 +379,8 @@ function writeUrl() {
 }
 
 function viewFovDegrees() {
-  return Math.max(state.fov * 3, 6) / 60;
+  // Slightly wider than the SPHEREx box so the white FOV stays readable as a finder chart.
+  return Math.max(state.fov * 1.5, state.fov + 2) / 60;
 }
 
 function drawFovBox() {
@@ -891,6 +892,7 @@ async function start() {
       diffView.show(loaded);
       proofView.show(loaded);
     },
+    onPixel: (p) => diffView?.pointAt?.([p.x, p.y]),
     view: state,
     onView: (changes) => {
       Object.assign(state, changes);
@@ -934,6 +936,11 @@ async function start() {
     fovValue.textContent = fovInput.value;
     state.fov = Number(fovInput.value);
     updateFovSlowNote();
+    // Keep the white FOV box and Aladin zoom in sync while dragging.
+    if (aladin && state.ra !== null) {
+      aladin.setFoV(viewFovDegrees());
+      drawFovBox();
+    }
   });
   fovInput.addEventListener("change", () => {
     state.fov = Number(fovInput.value);

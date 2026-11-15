@@ -22,9 +22,10 @@ export function stepPair(ids, a, b, which, delta) {
 
 /** The line above the panels. */
 export function pairFacts(pair, fa, fb) {
-  const wl = pair.wl_gap_um === null
+  const wlText = (f) => (f?.wl_target_um == null ? "unknown" : `${f.wl_target_um.toFixed(3)} µm`);
+  const wl = pair.wl_gap_um === null || fa?.wl_target_um == null || fb?.wl_target_um == null
     ? "wavelength at the star unknown for one visit"
-    : `wavelength at the star ${fa.wl_target_um.toFixed(3)} → ${fb.wl_target_um.toFixed(3)} µm ` +
+    : `wavelength at the star ${wlText(fa)} → ${wlText(fb)} ` +
       `(${pair.wl_gap_um.toFixed(3)} µm apart; mean of each add-up)`;
   return `${pair.days} days apart · ${wl} · sky change ${pair.sky_change >= 0 ? "+" : ""}${pair.sky_change.toFixed(3)} ` +
     `MJy/sr removed · ${pair.pct_flagged}% flagged and ${pair.pct_no_value}% without a value in either visit (striped)`;
@@ -127,6 +128,7 @@ export function createDiffView({ onPair = () => {} } = {}) {
   }
 
   function ring(layer, xy, cls, text) {
+    if (!xy || xy.length < 2 || !state?.manifest) return;
     const size = state.manifest.size_px;
     const mark = document.createElement("span");
     mark.className = `diff-ring ${cls}`;
@@ -150,6 +152,7 @@ export function createDiffView({ onPair = () => {} } = {}) {
   }
 
   function render() {
+    if (!state?.diff || !state?.manifest) return;
     const a = Number(el.a.value);
     const b = Number(el.b.value);
     const pair = findPair(state.diff, a, b);
@@ -158,13 +161,23 @@ export function createDiffView({ onPair = () => {} } = {}) {
     const ib = indexOf(b);
     const fa = manifest.frames[ia];
     const fb = manifest.frames[ib];
+    if (!pair || !fa || !fb || ia < 0 || ib < 0) {
+      el.panels.hidden = true;
+      el.message.hidden = false;
+      el.message.textContent = "No difference map for this visit pair.";
+      el.facts.textContent = "";
+      onPair(null);
+      return;
+    }
+    el.panels.hidden = false;
+    el.message.hidden = true;
     el.imgs.a.src = `${base}/${fa.png}`;
     el.imgs.b.src = `${base}/${fb.png}`;
     el.imgs.d.src = `${base}/${pair.png}`;
     el.imgs.a.alt = `Before: SPHEREx D${fa.band}, ${fa.date_iso}`;
     el.imgs.b.alt = `After: SPHEREx D${fb.band}, ${fb.date_iso}`;
     el.imgs.d.alt = `Difference after minus before, in sigma, ${pair.days} days`;
-    const wl = (f) => (f.wl_target_um === null ? "wavelength unknown" : `${f.wl_target_um.toFixed(3)} µm`);
+    const wl = (f) => (f.wl_target_um == null ? "wavelength unknown" : `${f.wl_target_um.toFixed(3)} µm`);
     el.caps.a.textContent = `A · ${fa.date_iso.slice(0, 10)} · D${fa.band} · ${wl(fa)} · ${fa.n_images} exp.`;
     el.caps.b.textContent = `B · ${fb.date_iso.slice(0, 10)} · D${fb.band} · ${wl(fb)} · ${fb.n_images} exp.`;
     el.caps.d.textContent = `(B − A)/σ · strongest +${pair.max_sigma} / ${pair.min_sigma} · scatter ${pair.scatter_sigma}`;

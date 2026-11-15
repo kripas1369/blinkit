@@ -28,7 +28,7 @@ test("diff: pairFacts and pairWarnings use the numbers from the pair", () => {
   const fa = { wl_target_um: 1.428, wl_target_range_um: [1.24, 1.63], n_images: 8 };
   const fb = { wl_target_um: 1.425, wl_target_range_um: [1.31, 1.54], n_images: 8 };
   assert.match(pairFacts(pair, fa, fb), /360\.2 days apart/);
-  assert.match(pairFacts(pair, fa, fb), /1\.428 → 1\.425/);
+  assert.match(pairFacts(pair, fa, fb), /1\.428(?: µm)? → 1\.425/);
   const warnings = pairWarnings(pair, fa, fb);
   assert.ok(warnings[0].includes("strongest +8.1σ"));
   assert.ok(warnings.some((w) => w.includes("mixes wavelengths")));

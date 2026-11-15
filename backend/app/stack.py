@@ -89,11 +89,14 @@ def write_stack(folder: Path, visits: list[int] | None = None) -> dict:
     mean_mjd = float(np.mean([l["mjd"] for l in loaded]))
     total_images = sum(f["n_images"] for f in frames)
     pix_sources = {l["pixsrc"] for l in loaded if l.get("pixsrc")}
-    pixel_source = (
-        "aws-s3"
-        if pix_sources == {"aws-s3"}
-        else ("irsa-cutout" if pix_sources == {"irsa-cutout"} else "mixed")
-    )
+    if pix_sources == {"aws-s3"}:
+        pixel_source = "aws-s3"
+    elif pix_sources == {"irsa-cutout"}:
+        pixel_source = "irsa-cutout"
+    elif not pix_sources:
+        pixel_source = None  # older epoch FITS without PIXSRC
+    else:
+        pixel_source = "mixed"
 
     save_frame_fits(
         coadded,

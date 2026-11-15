@@ -24,9 +24,10 @@ export function drawGaia(layer, gaia, i, size, gMax, { trail = true } = {}) {
   layer.replaceChildren();
   if (!gaia) return;
   for (const star of visibleStars(gaia, gMax)) {
+    if (!Array.isArray(star.xy) || !star.xy[i]) continue;
     if (star.target && trail) {
       star.xy.forEach((xy, k) => {
-        if (k === i) return;
+        if (k === i || !xy) return;
         const dot = document.createElement("span");
         dot.className = "gaia-trail";
         const { left, top } = percentAt(xy, size);
@@ -469,8 +470,13 @@ export function createFlipbook({
     el.showGaia.disabled = el.gaiaMag.disabled = !(manifest && gaia && isImages());
     if (el.showWise) el.showWise.disabled = !(manifest && wise && isImages());
     if (manifest) {
-      if (mode === "blink") render(blinkPair()[0]);
-      else if (mode === "stack") loadStack();
+      if (mode === "blink") {
+        fillBlinkChoices();
+        render(blinkPair()[0]);
+      } else if (mode === "diff") {
+        fillDiffChoices();
+        render();
+      } else if (mode === "stack") loadStack();
       else render(index);
     }
   }
@@ -482,12 +488,40 @@ export function createFlipbook({
     else if (mode === "blink") toggleBlink();
   }
 
+  /** Blink UI uses frame indexes; Diff UI uses epoch_id. Shared links may carry either. */
+  function resolveBlinkIndexes() {
+    const fallback = defaultBlinkPair(count());
+    if (!wantedPair) return fallback;
+    const [a, b] = wantedPair;
+    if (Number.isInteger(a) && Number.isInteger(b) && a >= 0 && b >= 0 && a < count() && b < count() && a !== b) {
+      return [a, b];
+    }
+    const ia = manifest.frames.findIndex((f) => f.epoch_id === a);
+    const ib = manifest.frames.findIndex((f) => f.epoch_id === b);
+    return ia >= 0 && ib >= 0 && ia !== ib ? [ia, ib] : fallback;
+  }
+
+  function resolveDiffEpochs() {
+    const def = diff?.default_pair;
+    if (!def) return null;
+    if (!wantedPair) return [def.a, def.b];
+    const [a, b] = wantedPair;
+    const asEpoch = manifest.frames.some((f) => f.epoch_id === a)
+      && manifest.frames.some((f) => f.epoch_id === b)
+      && a !== b;
+    if (asEpoch) return [a, b];
+    if (Number.isInteger(a) && Number.isInteger(b) && a >= 0 && b >= 0 && a < count() && b < count() && a !== b) {
+      return [manifest.frames[a].epoch_id, manifest.frames[b].epoch_id];
+    }
+    return [def.a, def.b];
+  }
+
   function fillBlinkChoices() {
     const options = manifest.frames
       .map((f, i) => `<option value="${i}">${i + 1}: ${f.date_iso.slice(0, 10)}</option>`).join("");
     el.blinkA.innerHTML = options;
     el.blinkB.innerHTML = options;
-    const [a, b] = wantedPair && wantedPair.every((i) => i < count()) ? wantedPair : defaultBlinkPair(count());
+    const [a, b] = resolveBlinkIndexes();
     el.blinkA.value = String(a);
     el.blinkB.value = String(b);
   }
@@ -498,12 +532,9 @@ export function createFlipbook({
       .map((f, i) => `<option value="${f.epoch_id}">${i + 1}: ${f.date_iso.slice(0, 10)}</option>`).join("");
     el.flipDiffA.innerHTML = options;
     el.flipDiffB.innerHTML = options;
-    const def = diff.default_pair;
-    const useWanted = wantedPair
-      && manifest.frames.some((f) => f.epoch_id === wantedPair[0])
-      && manifest.frames.some((f) => f.epoch_id === wantedPair[1]);
-    el.flipDiffA.value = String(useWanted ? wantedPair[0] : def.a);
-    el.flipDiffB.value = String(useWanted ? wantedPair[1] : def.b);
+    const pair = resolveDiffEpochs();
+    el.flipDiffA.value = String(pair[0]);
+    el.flipDiffB.value = String(pair[1]);
   }
 
   function fillStackChoices() {
@@ -518,7 +549,15 @@ export function createFlipbook({
       box.checked = chosen.has(f.epoch_id);
       box.addEventListener("change", () => {
         const ids = [...el.stackList.querySelectorAll("input:checked")].map((b) => Number(b.value));
-        stackChosen = ids.length ? ids : null;
+        if (!ids.length) {
+          // Do not treat “none checked” as “all visits” — that misleads.
+          stackChosen = [];
+          stack = null;
+          if (el.stackNoise) el.stackNoise.textContent = "Select at least one visit to stack.";
+          if (mode === "stack") renderStack();
+          return;
+        }
+        stackChosen = ids.length === manifest.frames.length ? null : ids;
         loadStack();
       });
       label.append(box, document.createTextNode(` Visit ${i + 1}: ${f.date_iso.slice(0, 10)}`));
@@ -528,6 +567,12 @@ export function createFlipbook({
 
   async function loadStack() {
     if (!manifest) return;
+    if (Array.isArray(stackChosen) && stackChosen.length === 0) {
+      stack = null;
+      if (el.stackNoise) el.stackNoise.textContent = "Select at least one visit to stack.";
+      if (mode === "stack") renderStack();
+      return;
+    }
     const params = new URLSearchParams();
     if (manifest.target && !String(folder).includes("jobframes")) {
       params.set("target", manifest.target);
