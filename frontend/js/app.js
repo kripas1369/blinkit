@@ -88,6 +88,14 @@ const state = { ra: null, dec: null, fov: 3, det: 2, ...VIEW_DEFAULTS, source: "
 let catalog = [];
 let A = null;
 let aladin = null;
+/** "aladin" | "esasky" | "none" — ESASky iframe is the backup when Aladin Lite fails. */
+let mapMode = "none";
+
+const ESASKY_HIPS = {
+  "2mass": "2MASS color",
+  "allwise": "AllWISE Color",
+  "dss2": "DSS2 color",
+};
 let fovOverlay = null;
 // Bumped on every new position, so a slow SIMBAD answer cannot overwrite a newer choice.
 let positionVersion = 0;
@@ -762,22 +770,20 @@ async function loadAladin() {
 }
 
 async function startMap() {
+  const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
   A = await loadAladin();
   if (!A) {
-    mapMessage.textContent =
-      "The sky map could not load (Aladin Lite CDN blocked or offline). Open Sky map after a refresh, or use search/targets — the flipbook still works.";
+    showEsaskyMap(first.ra, first.dec, "CDN blocked or offline");
     return;
   }
   try {
     await A.init;
   } catch (err) {
-    mapMessage.textContent =
-      `The sky map could not start (${err}). Try another browser or disable strict tracking prevention. Search and official targets still work.`;
+    showEsaskyMap(first.ra, first.dec, String(err));
     return;
   }
   // Keep the sky panel visible so Aladin can size its WebGL canvas.
   setInspector(true);
-  const first = state.ra !== null ? state : targetPosition(TARGETS[0]);
   try {
     aladin = A.aladin("#aladin", {
       survey: surveyLayer(SURVEYS[0]),
@@ -801,10 +807,10 @@ async function startMap() {
     } catch {
       aladin.setBaseImageLayer(A.imageHiPS(SURVEYS[0].url, { name: SURVEYS[0].name, ...MAP_LOOK }));
     }
-    mapMessage.remove();
+    mapMessage?.remove();
+    mapMode = "aladin";
   } catch (err) {
-    mapMessage.textContent =
-      `The sky map could not draw (${err}). Search and official targets still work.`;
+    showEsaskyMap(first.ra, first.dec, String(err));
     return;
   }
   fovOverlay = A.graphicOverlay({ color: "#ffffff", lineWidth: 2 });
@@ -834,11 +840,60 @@ async function startMap() {
 
 function changeSurvey() {
   const survey = SURVEYS.find((s) => s.id === surveySelect.value);
-  if (!aladin || !survey) return;
+  if (!survey) return;
+  if (mapMode === "esasky") {
+    const ra = state.ra ?? TARGETS[0].ra;
+    const dec = state.dec ?? TARGETS[0].dec;
+    const frame = $("esasky-frame");
+    if (frame) frame.src = esaskySrc(ra, dec);
+    return;
+  }
+  if (!aladin) return;
   try {
     aladin.setBaseImageLayer(A.imageHiPS(surveyLayer(survey), { name: survey.name, ...MAP_LOOK }));
   } catch {
     aladin.setBaseImageLayer(A.imageHiPS(survey.url, { name: survey.name, ...MAP_LOOK }));
+  }
+}
+
+function esaskySrc(ra, dec) {
+  const survey = SURVEYS.find((s) => s.id === surveySelect?.value) || SURVEYS[0];
+  const hips = ESASKY_HIPS[survey.id] || "DSS2 color";
+  const decPart = dec >= 0 ? `+${dec.toFixed(5)}` : dec.toFixed(5);
+  const q = new URLSearchParams({
+    target: `${ra.toFixed(5)} ${decPart}`,
+    fov: String(Math.max(viewFovDegrees(), 0.05)),
+    hips,
+    hide_welcome: "true",
+    hide_banner: "true",
+    sci: "true",
+  });
+  return `https://sky.esa.int/esasky?${q}`;
+}
+
+/** ESASky iframe — same job as Aladin (pan/zoom sky), more reliable behind HTTPS hosts. */
+function showEsaskyMap(ra, dec, reason = "") {
+  mapMode = "esasky";
+  aladin = null;
+  setInspector(true);
+  const box = $("aladin");
+  if (!box) return;
+  box.innerHTML = "";
+  const frame = document.createElement("iframe");
+  frame.id = "esasky-frame";
+  frame.className = "esasky-frame";
+  frame.title = "ESASky interactive sky map";
+  frame.loading = "eager";
+  frame.allow = "fullscreen";
+  frame.referrerPolicy = "no-referrer-when-downgrade";
+  frame.src = esaskySrc(ra, dec);
+  box.appendChild(frame);
+  const help = document.querySelector(".sky-panel .map-help");
+  if (help) {
+    help.textContent =
+      "ESASky map" +
+      (reason ? ` (Aladin Lite unavailable: ${reason})` : "") +
+      ". Pan and zoom inside the frame. Use search or official targets to set Blinkit’s position.";
   }
 }
 
