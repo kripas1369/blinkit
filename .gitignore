@@ -40,3 +40,5 @@ frontend/lab/data/
 # Logs
 *.log
 npm-debug.log*
+# Local planning notes — not for GitHub
+hold.md
