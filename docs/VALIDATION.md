@@ -139,3 +139,34 @@ eps_ind_b    D4   3        19       aws-s3         DR1          0.18-0.21       
 ----------------------------------------------------------------------------------------------------------
 ALL CHECKS PASSED: 10 folders verified compliant with FRAMES_FORMAT.md (all pixel_source = aws-s3).
 ```
+
+## 7. Phase 1 sign-off (B5, 15 Nov 2026)
+
+Automated runs: `python -m scripts.check_frames` (10/10 PASS), `python -m scripts.phase1_signoff`, backend **103 passed** pytest, frontend **54** npm tests.
+
+### Prepared-target checks (Kripas)
+
+| Check | Status | Evidence |
+|---|---|---|
+| Barnard's Star walks ~1.7 px; Gaia marker tracks | **Pass (D2)** | proof.json: 1.61 px vs 1.67 px; D1–D5 agree; D6 not measurable |
+| WISE 0855 faint D1–D3, visible D5–D6 | **Blocked** | No `wise0855/` frames yet (IRSA outage) |
+| Epsilon Indi B shift vs Gaia, separate from A | **Pass (D2–D4)** | proof agrees; D1 too faint/disagrees; D5–D6 not rendered |
+| RW Aur / R Dra brightness between visits | **Blocked** | Targets not rendered; variable check after render |
+| Random RA/Dec job → progress → plays | **Pass (API)** | `test_frames_api.py::test_finished_job_serves_its_folder`; live SIA job succeeded at RA 150.1°, +2.2° (14 Nov) |
+| Empty position → honest no-data message | **Pass** | API 404 `NoImages`; UI `frames.js` status `none`; `test_frames_api::test_job_with_no_images` |
+| `check_frames.py` passes | **Pass** | Section 6 table |
+| Every frame `pixel_source = aws-s3` | **Pass** | All 10 folders |
+
+### Phase 1 completion gap (honest)
+
+- **20 of 30** folders missing: wise0855 (6), rw_aur (6), r_dra (6), eps_ind_b D5–D6 — renders need stable IRSA (TAP for Gaia/CatWISE; SIA works for image search).
+- `frontend/js/targets.js` ratings updated for all **rendered** folders from proof.json; other targets marked not rendered.
+- `backend/app/frame_notes.py` re-measured for barnard and eps_ind_b on disk.
+- README.md added; git tag **`phase1`** marks code/docs sign-off at 10/30 frames (not full 30-folder media freeze).
+
+### Sign-off checklist (manual, when IRSA returns)
+
+- [ ] Re-run `python -m backend.app.render <target> <det>` for missing 20 folders + `write_index`.
+- [ ] `check_frames.py` → 30/30 PASS.
+- [ ] Re-score WISE 0855, RW Aur, R Dra in browser; tick rows above.
+- [ ] Push tag `phase1` to GitHub if not already pushed.
